@@ -12,6 +12,7 @@ import { handleMapsDownload } from "./routes/mapsDownload";
 import { handleMapsRating } from "./routes/mapsRating";
 import { handleMapsRatings } from "./routes/mapsRatings";
 import { handleMapsTop } from "./routes/mapsTop";
+import { handleMapsQuery } from "./routes/mapsQuery";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -59,6 +60,7 @@ export default {
       const handlers = [
         handleFilesUpload,
         handleMapsDownload,
+        handleMapsQuery,
         handleMapsRating,
         handleMapsRatings,
         handleMapsTop,
