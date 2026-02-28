@@ -6,13 +6,13 @@ import { logError, logInfo, logWarn } from "./utils/logger";
 import { enforcePostCooldown } from "./middleware/cooldown";
 import { enforceIpBan } from "./middleware/ban";
 
-import { handleFilesUpload } from "./routes/filesUpload";
-import { handleMapsUpload } from "./routes/mapsUpload";
-import { handleMapsDownload } from "./routes/mapsDownload";
-import { handleMapsRating } from "./routes/mapsRating";
-import { handleMapsRatings } from "./routes/mapsRatings";
-import { handleMapsTop } from "./routes/mapsTop";
-import { handleMapsQuery } from "./routes/mapsQuery";
+import { handlePostFilesUpload } from "./routes/files/postUpload";
+import { handlePostMapsUpload } from "./routes/maps/postUpload";
+import { handleGetMapsDownload } from "./routes/maps/getDownload";
+import { handleGetMapsRating } from "./routes/ratings/getRating";
+import { handlePostMapsRating } from "./routes/ratings/postRating";
+import { handleGetMapsTop } from "./routes/maps/getTop";
+import { handleGetMapsQuery } from "./routes/maps/getQuery";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -58,13 +58,13 @@ export default {
       }
 
       const handlers = [
-        handleFilesUpload,
-        handleMapsDownload,
-        handleMapsQuery,
-        handleMapsRating,
-        handleMapsRatings,
-        handleMapsTop,
-        handleMapsUpload,
+        handleGetMapsDownload,
+        handleGetMapsQuery,
+        handleGetMapsTop,
+        handleGetMapsRating,
+        handlePostMapsRating,
+        handlePostFilesUpload,
+        handlePostMapsUpload,
       ];
 
       for (const h of handlers) {
