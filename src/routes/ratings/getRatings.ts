@@ -14,7 +14,7 @@ export async function handleGetMapsRating(
   const m = path.match(/^\/ratings\/([^\/]+)\/(\d+)$/);
   if (!m || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1] ?? "");
+  const mapId = decodeURIComponent(m[1] ?? "")?.trim();
   const limit = Math.min(parseInt(m[2], 10), 100);
 
   logInfo(requestId, "route.ratings.get.hit", {

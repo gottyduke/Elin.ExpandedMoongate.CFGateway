@@ -11,10 +11,10 @@ export async function handleGetMapsQuery(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/ratings\/query\/([^\/]+)\/([^\/]+)$/);
+  const m = path.match(/^\/ratings\/([^\/]+)\/([^\/]+)$/);
   if (!m || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1] ?? "");
+  const mapId = decodeURIComponent(m[1] ?? "")?.trim();
   const userId = Math.min(parseInt(m[2], 10), 100);
 
   logInfo(requestId, "route.ratings.get.hit", {

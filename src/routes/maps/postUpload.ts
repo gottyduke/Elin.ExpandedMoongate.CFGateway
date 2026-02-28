@@ -14,7 +14,7 @@ export async function handlePostMapsUpload(
   const m = path.match(/^\/maps\/upload\/([^\/]+)$/);
   if (!m || method !== "POST") return null;
 
-  const mapId = decodeURIComponent(m[1]);
+  const mapId = decodeURIComponent(m[1])?.trim();
   logInfo(requestId, "route.maps.upload.hit", { mapId });
 
   if (!mapId) {
@@ -41,7 +41,8 @@ export async function handlePostMapsUpload(
     return bad("version is required");
   }
 
-  const fileKey = `files/${mapId}/${mapMeta.version}/${mapMeta.created_at}`;
+  const fileName = sanitizeFileName(`${mapId}/${mapMeta.created_at}`);
+  const fileKey = `files/${sanitizeFileName(mapMeta.author)}/${mapMeta.version}/${fileName}`;
   const mapExist = await env.DB.prepare(
     `
     SELECT 1 
@@ -114,6 +115,7 @@ export async function handlePostMapsUpload(
 
   logInfo(requestId, "route.maps.upload.ok", {
     mapId,
+    fileName,
     fileKey,
     author: mapMeta.author,
     version: mapMeta.version,
@@ -121,4 +123,8 @@ export async function handlePostMapsUpload(
   });
 
   return json({ ok: true, mapId }, 201);
+}
+
+function sanitizeFileName(name: string): string {
+  return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
 }

@@ -11,24 +11,31 @@ export async function handlePostMapsRating(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  if (!(path === "/ratings" && method === "POST")) return null;
+  const m = path.match(/^\/ratings\/([^\/]+)/);
+  if (!m || method !== "POST") return null;
 
+  const mapId = decodeURIComponent(m[1] ?? "")?.trim();
   const body = (await request.json()) as RatingBody;
-  logInfo(requestId, "route.ratings.post.hit", {
-    mapId: body?.map_id,
-    score: body?.score,
-  });
 
-  if (!body?.map_id) {
+  if (body.map_id !== mapId) {
     logWarn(requestId, "route.ratings.post.bad_request", {
-      reason: "map id missing",
+      reason: "map id in url and body do not match",
+      urlMapId: mapId,
+      bodyMapId: body.map_id,
     });
-    return bad("map id is required");
+    return bad("map id in url and body must match");
   }
+
+  logInfo(requestId, "route.ratings.post.hit", {
+    mapId: mapId,
+    score: body?.score,
+    comment: body?.comment,
+    author: body?.author,
+  });
 
   if (!Number.isInteger(body.score) || body.score < 1 || body.score > 5) {
     logWarn(requestId, "route.ratings.post.bad_request", {
-      mapId: body.map_id,
+      mapId: mapId,
       reason: "invalid score",
       score: body.score,
     });
@@ -44,10 +51,10 @@ export async function handlePostMapsRating(
     LIMIT 1
     `,
   )
-    .bind(body.map_id)
+    .bind(mapId)
     .first();
   if (!mapExists) {
-    logWarn(requestId, "route.ratings.post.not_found", { mapId: body.map_id });
+    logWarn(requestId, "route.ratings.post.not_found", { mapId: mapId });
     return bad("map not found", 404);
   }
 
@@ -63,14 +70,7 @@ export async function handlePostMapsRating(
       rated_at = excluded.rated_at
   `,
   )
-    .bind(
-      requestId,
-      body.map_id,
-      body.author,
-      body.score,
-      body.comment ?? null,
-      now,
-    )
+    .bind(requestId, mapId, body.author, body.score, body.comment ?? null, now)
     .run();
 
   const agg = await env.DB.prepare(
@@ -80,7 +80,7 @@ export async function handlePostMapsRating(
     WHERE map_id = ?
   `,
   )
-    .bind(body.map_id)
+    .bind(mapId)
     .first<{ c: number; a: number }>();
 
   await env.DB.prepare(
@@ -92,11 +92,11 @@ export async function handlePostMapsRating(
     LIMIT 1
   `,
   )
-    .bind(agg?.c ?? 0, agg?.a ?? 0, body.map_id)
+    .bind(agg?.c ?? 0, agg?.a ?? 0, mapId)
     .run();
 
   logInfo(requestId, "route.ratings.post.ok", {
-    mapId: body.map_id,
+    mapId: mapId,
     count: agg?.c ?? 0,
     average: agg?.a ?? 0,
   });

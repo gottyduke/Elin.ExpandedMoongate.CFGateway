@@ -14,7 +14,7 @@ export async function handleGetMapsQuery(
   const m = path.match(/^\/maps\/query\/([^\/]+)$/);
   if (!m || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1]);
+  const mapId = decodeURIComponent(m[1])?.trim();
   logInfo(requestId, "route.maps.query.hit", { mapId });
 
   if (!mapId) {

@@ -13,7 +13,7 @@ export async function handleGetMapsDownload(
   const m = path.match(/^\/maps\/download\/([^\/]+)$/);
   if (!m || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1]);
+  const mapId = decodeURIComponent(m[1])?.trim();
   logInfo(requestId, "route.maps.download.hit", { mapId });
 
   if (!mapId) {
