@@ -15,14 +15,25 @@ export async function handlePostFilesUpload(
   const m = path.match(/^\/files\/upload\/([^\/]+)$/);
   if (!m || method !== "POST") return null;
 
-  const fileKey = decodeURIComponent(m[1]);
-  logInfo(requestId, "route.files.upload.hit", { fileKey });
+  const fileKeyId = decodeURIComponent(m[1]);
+  logInfo(requestId, "route.files.upload.hit", { fileKeyId });
 
-  if (!fileKey) {
+  if (!fileKeyId) {
     logWarn(requestId, "route.files.upload.bad_request", {
-      reason: "invalid file key",
+      reason: "invalid file key id",
     });
-    return bad("invalid file key");
+    return bad("invalid file key id");
+  }
+
+  const fileKey = await env.KV.get(`pending-upload:${fileKeyId}`);
+  if (!fileKey) {
+    logWarn(requestId, "route.files.upload.not_permitted", {
+      fileKeyId,
+    });
+    return bad(
+      "file upload not permitted. Please regenerate fileKeyId via /maps/upload first.",
+      403,
+    );
   }
 
   const existing = await env.R2.head(fileKey);
@@ -32,17 +43,6 @@ export async function handlePostFilesUpload(
       reason: "file conflict",
     });
     return bad("file already exists", 409);
-  }
-
-  const canUpload = await env.KV.get(`pending-upload:${fileKey}`);
-  if (!canUpload) {
-    logWarn(requestId, "route.files.upload.not_permitted", {
-      fileKey,
-    });
-    return bad(
-      "file upload not permitted. Please regenerate fileKey via /maps/upload first.",
-      403,
-    );
   }
 
   const contentType =
@@ -80,6 +80,8 @@ export async function handlePostFilesUpload(
     fileKey,
     size: head?.size ?? fileBytes.byteLength,
   });
+
+  await env.KV.delete(`pending-upload:${fileKeyId}`);
 
   return json(
     { ok: true, fileKey, size: head?.size ?? fileBytes.byteLength },

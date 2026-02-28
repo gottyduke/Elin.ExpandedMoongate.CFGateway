@@ -1,6 +1,7 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 import { MapDbRecord, MapMetaBody } from "../../types";
+import { makeRequestId } from "../../utils/request";
 
 export async function handlePostMapsUpload(
   request: Request,
@@ -46,12 +47,16 @@ export async function handlePostMapsUpload(
 
   const head = await env.R2.head(fileKey);
   if (!head) {
+    const fileKeyId = makeRequestId();
     logWarn(requestId, "route.maps.upload.wait_for_file", {
       mapId,
+      fileKeyId,
       reason: "file not uploaded",
     });
-    await env.KV.put(`pending-upload:${fileKey}`, "1", { expirationTtl: 120 });
-    return json({ fileKey }, 424);
+    await env.KV.put(`pending-upload:${fileKeyId}`, fileKey, {
+      expirationTtl: 120,
+    });
+    return json({ fileKeyId }, 424);
   } else {
     logInfo(requestId, "route.maps.upload.file_found", {
       mapId,
