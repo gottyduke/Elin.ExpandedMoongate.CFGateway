@@ -11,13 +11,17 @@ export async function handleGetMapsTop(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/maps\/top\/(created|rating|visits)\/(\d+)$/);
+  const m = path.match(
+    /^\/maps\/top\/(created|rating|visits)\/(\d+)(?:\/(\d+))?$/,
+  );
   if (!m || method !== "GET") return null;
 
   const sort = m[1] as "created" | "rating" | "visits";
   const limit = Math.min(parseInt(m[2], 10), 200);
+  const page = m[3] ? parseInt(m[3], 10) : 0;
+  const offset = limit * page;
 
-  logInfo(requestId, "route.maps.top.hit", { sort, limit });
+  logInfo(requestId, "route.maps.top.hit", { sort, limit, page, offset });
 
   if (sort === "rating") {
     const minVotes = 20;
@@ -26,21 +30,23 @@ export async function handleGetMapsTop(
     ).first<{ c: number | null }>();
     const C = global?.c ?? 3.5;
 
-    const stmt = env.DB.prepare(
+    const { results } = await env.DB.prepare(
       `
       SELECT file_key, id, author, title, language, category, created_at, version, tag, 
         visit_count, rating_count, rating_average, file_size, preview_key,
         (((rating_count * rating_average) + (? * ?)) / (rating_count + ?)) AS weighted_rating
       FROM maps
       ORDER BY weighted_rating DESC, rating_count DESC, created_at DESC
-      LIMIT ?
+      LIMIT ? OFFSET ?
     `,
-    ).bind(minVotes, C, minVotes, limit);
-
-    const { results } = await stmt.all<MapDbRecord>();
+    )
+      .bind(minVotes, C, minVotes, limit, offset)
+      .all<MapDbRecord>();
     logInfo(requestId, "route.maps.top.ok", {
       sort,
       limit,
+      page,
+      offset,
       count: results.length,
     });
     return json(results);
@@ -53,15 +59,17 @@ export async function handleGetMapsTop(
         visit_count, rating_count, rating_average, file_size, preview_key
     FROM maps
     ORDER BY ${orderBy}
-    LIMIT ?
+    LIMIT ? OFFSET ?
   `,
   )
-    .bind(limit)
+    .bind(limit, offset)
     .all<MapDbRecord>();
 
   logInfo(requestId, "route.maps.top.ok", {
     sort,
     limit,
+    page,
+    offset,
     count: results.length,
   });
   return json(results);
