@@ -1,8 +1,8 @@
-import type { RatingBody } from "../types";
-import { bad, json } from "../utils/response";
-import { logInfo, logWarn } from "../utils/logger";
+import type { RatingBody } from "../../types";
+import { bad, json } from "../../utils/response";
+import { logInfo, logWarn } from "../../utils/logger";
 
-export async function handleMapsRating(
+export async function handlePostMapsRating(
   request: Request,
   env: Env,
   requestId: string,
@@ -11,22 +11,22 @@ export async function handleMapsRating(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  if (!(path === "/maps/rating" && method === "POST")) return null;
+  if (!(path === "/ratings" && method === "POST")) return null;
 
   const body = (await request.json()) as RatingBody;
-  logInfo(requestId, "route.maps.rating.hit", {
+  logInfo(requestId, "route.ratings.post.hit", {
     mapId: body?.MapId,
     userIdLen: body?.UserId?.length ?? 0,
     score: body?.Score,
   });
 
   if (!body?.MapId || !body?.UserId) {
-    logWarn(requestId, "route.maps.rating.bad_request", { reason: "mapId/userId missing" });
+    logWarn(requestId, "route.ratings.post.bad_request", { reason: "mapId/userId missing" });
     return bad("mapId and userId are required");
   }
 
   if (!Number.isInteger(body.Score) || body.Score < 1 || body.Score > 5) {
-    logWarn(requestId, "route.maps.rating.bad_request", {
+    logWarn(requestId, "route.ratings.post.bad_request", {
       mapId: body.MapId,
       reason: "invalid score",
       score: body.Score,
@@ -38,11 +38,11 @@ export async function handleMapsRating(
     .bind(body.MapId)
     .first();
   if (!mapExists) {
-    logWarn(requestId, "route.maps.rating.not_found", { mapId: body.MapId });
+    logWarn(requestId, "route.ratings.post.not_found", { mapId: body.MapId });
     return bad("map not found", 404);
   }
 
-  const now = new Date().toISOString();
+  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
   await env.DB.prepare(`
     INSERT INTO map_ratings (map_id, user_id, score, comment, rated_at)
@@ -71,7 +71,7 @@ export async function handleMapsRating(
     .bind(agg?.c ?? 0, agg?.a ?? 0, body.MapId)
     .run();
 
-  logInfo(requestId, "route.maps.rating.ok", {
+  logInfo(requestId, "route.ratings.post.ok", {
     mapId: body.MapId,
     ratingCount: agg?.c ?? 0,
     ratingAverage: agg?.a ?? 0,

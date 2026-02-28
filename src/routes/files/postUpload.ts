@@ -1,9 +1,9 @@
-import { bad, json } from "../utils/response";
-import { logInfo, logWarn } from "../utils/logger";
-import { MAX_FILE_SIZE_BYTES } from "../constants";
-import { readWithLimit } from "../utils/streamSize";
+import { bad, json } from "../../utils/response";
+import { logInfo, logWarn } from "../../utils/logger";
+import { MAX_FILE_SIZE_BYTES } from "../../constants";
+import { readWithLimit } from "../../utils/streamSize";
 
-export async function handleFilesUpload(
+export async function handlePostFilesUpload(
   request: Request,
   env: Env,
   requestId: string,

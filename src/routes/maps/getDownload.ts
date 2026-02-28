@@ -1,7 +1,7 @@
-import { bad } from "../utils/response";
-import { logInfo, logWarn } from "../utils/logger";
+import { bad } from "../../utils/response";
+import { logInfo, logWarn } from "../../utils/logger";
 
-export async function handleMapsDownload(
+export async function handleGetMapsDownload(
   request: Request,
   env: Env,
   requestId: string,

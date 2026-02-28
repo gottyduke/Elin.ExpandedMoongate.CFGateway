@@ -1,7 +1,7 @@
-import { json } from "../utils/response";
-import { logInfo } from "../utils/logger";
+import { json } from "../../utils/response";
+import { logInfo } from "../../utils/logger";
 
-export async function handleMapsQuery(
+export async function handleGetMapsQuery(
   request: Request,
   env: Env,
   requestId: string,

@@ -1,8 +1,8 @@
-import type { MapUploadBody } from "../types";
-import { bad, json } from "../utils/response";
-import { logInfo, logWarn } from "../utils/logger";
+import type { MapUploadBody } from "../../types";
+import { bad, json } from "../../utils/response";
+import { logInfo, logWarn } from "../../utils/logger";
 
-export async function handleMapsUpload(
+export async function handlePostMapsUpload(
   request: Request,
   env: Env,
   requestId: string,
@@ -58,7 +58,7 @@ export async function handleMapsUpload(
       payload.Title ?? null,
       payload.Lang ?? null,
       payload.Cat ?? null,
-      payload.Date ?? new Date().toISOString(),
+      payload.Date ?? new Date().toISOString().slice(0, 19).replace("T", " "),
       payload.Version,
       payload.Tag ?? null,
       payload.IsOfficial ? 1 : 0,
