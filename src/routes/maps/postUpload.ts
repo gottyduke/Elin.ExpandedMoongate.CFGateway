@@ -50,6 +50,7 @@ export async function handlePostMapsUpload(
       mapId,
       reason: "file not uploaded",
     });
+    await env.KV.put(`pending-upload:${fileKey}`, "1", { expirationTtl: 120 });
     return json({ fileKey }, 424);
   } else {
     logInfo(requestId, "route.maps.upload.file_found", {
@@ -74,7 +75,6 @@ export async function handlePostMapsUpload(
     });
     return bad("meta with the same id and version already exists", 409);
   }
-
 
   await env.DB.prepare(
     `

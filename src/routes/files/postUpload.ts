@@ -34,6 +34,17 @@ export async function handlePostFilesUpload(
     return bad("file already exists", 409);
   }
 
+  const canUpload = await env.KV.get(`pending-upload:${fileKey}`);
+  if (!canUpload) {
+    logWarn(requestId, "route.files.upload.not_permitted", {
+      fileKey,
+    });
+    return bad(
+      "file upload not permitted. Please regenerate fileKey via /maps/upload first.",
+      403,
+    );
+  }
+
   const contentType =
     request.headers.get("Content-Type") || "application/octet-stream";
   const body = request.body;
