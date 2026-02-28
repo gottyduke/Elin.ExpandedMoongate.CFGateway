@@ -15,43 +15,31 @@ export async function handlePostFilesUpload(
   const m = path.match(/^\/files\/upload\/([^\/]+)$/);
   if (!m || method !== "POST") return null;
 
-  const id = decodeURIComponent(m[1]);
-  logInfo(requestId, "route.files.upload.hit", { id });
+  const fileKey = decodeURIComponent(m[1]);
+  logInfo(requestId, "route.files.upload.hit", { fileKey });
 
-  if (!id) {
+  if (!fileKey) {
     logWarn(requestId, "route.files.upload.bad_request", {
-      reason: "invalid id",
+      reason: "invalid file key",
     });
-    return bad("invalid id");
+    return bad("invalid file key");
   }
 
-  const mapExists = await env.DB.prepare(`SELECT 1 FROM maps WHERE id = ?`)
-    .bind(id)
-    .first();
-  if (mapExists) {
-    logWarn(requestId, "route.files.upload.conflict", {
-      id,
-      reason: "map-meta-exists",
-    });
-    return bad("map id already exists in metadata", 409);
-  }
-
-  const key = `maps/${id}.z`;
-  const existing = await env.R2.head(key);
+  const existing = await env.R2.head(fileKey);
   if (existing) {
     logWarn(requestId, "route.files.upload.conflict", {
-      id,
-      reason: "file-exists",
+      fileKey,
+      reason: "file conflict",
     });
     return bad("file already exists", 409);
   }
 
   const contentType =
-    request.headers.get("content-type") || "application/octet-stream";
+    request.headers.get("Content-Type") || "application/octet-stream";
   const body = request.body;
   if (!body) {
     logWarn(requestId, "route.files.upload.bad_request", {
-      id,
+      fileKey,
       reason: "missing body",
     });
     return bad("missing file body");
@@ -63,25 +51,27 @@ export async function handlePostFilesUpload(
   } catch (err) {
     if (err instanceof Error && err.message === "PAYLOAD_TOO_LARGE") {
       logWarn(requestId, "route.files.upload.too_large", {
-        id,
+        fileKey,
         max: MAX_FILE_SIZE_BYTES,
       });
-      return new Response("file too large (max 25MB)", { status: 413 });
+      return bad(
+        `file too large (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB)`,
+        413,
+      );
     }
     throw err;
   }
 
-  await env.R2.put(key, fileBytes, { httpMetadata: { contentType } });
-  const head = await env.R2.head(key);
+  await env.R2.put(fileKey, fileBytes, { httpMetadata: { contentType } });
+  const head = await env.R2.head(fileKey);
 
   logInfo(requestId, "route.files.upload.ok", {
-    id,
-    key,
+    fileKey,
     size: head?.size ?? fileBytes.byteLength,
   });
 
   return json(
-    { ok: true, id, fileKey: key, size: head?.size ?? fileBytes.byteLength },
+    { ok: true, fileKey, size: head?.size ?? fileBytes.byteLength },
     201,
   );
 }

@@ -9,7 +9,7 @@ import { enforceIpBan } from "./middleware/ban";
 import { handlePostFilesUpload } from "./routes/files/postUpload";
 import { handlePostMapsUpload } from "./routes/maps/postUpload";
 import { handleGetMapsDownload } from "./routes/maps/getDownload";
-import { handleGetMapsRating } from "./routes/ratings/getRating";
+import { handleGetMapsRating } from "./routes/ratings/getRatings";
 import { handlePostMapsRating } from "./routes/ratings/postRating";
 import { handleGetMapsTop } from "./routes/maps/getTop";
 import { handleGetMapsQuery } from "./routes/maps/getQuery";
@@ -54,6 +54,17 @@ export default {
             durationMs: Date.now() - startedAt,
           });
           return withRequestId(cooldownResp, requestId);
+        }
+
+        const steamId = request.headers.get("x-request-id");
+        if (!steamId) {
+          logWarn(requestId, "request.end", {
+            method,
+            path,
+            status: 400,
+            durationMs: Date.now() - startedAt,
+          });
+          return withRequestId(bad("Missing Steam ID", 400), requestId);
         }
       }
 

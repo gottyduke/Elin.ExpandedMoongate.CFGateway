@@ -16,7 +16,21 @@ export async function handleGetMapsDownload(
   const mapId = decodeURIComponent(m[1]);
   logInfo(requestId, "route.maps.download.hit", { mapId });
 
-  const map = await env.DB.prepare(`SELECT file_key FROM maps WHERE id = ?`)
+  if (!mapId) {
+    logWarn(requestId, "route.maps.download.bad_request", {
+      reason: "invalid map id",
+    });
+    return bad("invalid map id");
+  }
+
+  const map = await env.DB.prepare(
+    `
+    SELECT file_key 
+    FROM maps 
+    WHERE id = ?
+    ORDER BY created_at DESC
+    LIMIT 1`,
+  )
     .bind(mapId)
     .first<{ file_key: string }>();
 
@@ -35,7 +49,13 @@ export async function handleGetMapsDownload(
   }
 
   await env.DB.prepare(
-    `UPDATE maps SET visit_count = visit_count + 1 WHERE id = ?`,
+    `
+    UPDATE maps 
+    SET visit_count = visit_count + 1 
+    WHERE id = ? 
+    ORDER BY created_at DESC
+    LIMIT 1
+    `,
   )
     .bind(mapId)
     .run();

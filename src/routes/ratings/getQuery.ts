@@ -1,0 +1,67 @@
+import { bad, json } from "../../utils/response";
+import { logInfo, logWarn } from "../../utils/logger";
+import { RatingDbRecord } from "../../types";
+
+export async function handleGetMapsQuery(
+  request: Request,
+  env: Env,
+  requestId: string,
+): Promise<Response | null> {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method.toUpperCase();
+
+  const m = path.match(/^\/ratings\/query\/([^\/]+)\/([^\/]+)$/);
+  if (!m || method !== "GET") return null;
+
+  const mapId = decodeURIComponent(m[1] ?? "");
+  const userId = Math.min(parseInt(m[2], 10), 100);
+
+  logInfo(requestId, "route.ratings.get.hit", {
+    mapId: mapId,
+    userId: userId,
+  });
+
+  if (!mapId || !userId) {
+    logWarn(requestId, "route.ratings.get.bad_request", {
+      reason: "map id or user id missing",
+    });
+    return bad("map id and user id are required");
+  }
+
+  const mapExists = await env.DB.prepare(
+    `
+    SELECT 1 
+    FROM maps 
+    WHERE id = ? 
+    ORDER BY created_at DESC 
+    LIMIT 1
+    `,
+  )
+    .bind(mapId)
+    .first();
+
+  if (!mapExists) {
+    logWarn(requestId, "route.ratings.get.not_found", { mapId });
+    return bad("map not found", 404);
+  }
+
+  const rating = await env.DB.prepare(
+    `
+      SELECT uuid, map_id, author, score, comment, rated_at
+      FROM ratings
+      WHERE map_id = ? AND author = ?
+      LIMIT 1
+    `,
+  )
+    .bind(mapId, userId)
+    .first<RatingDbRecord>();
+
+  logInfo(requestId, "route.ratings.get.ok", {
+    mapId,
+    userId,
+    rating,
+  });
+
+  return json(rating);
+}

@@ -1,6 +1,6 @@
-import type { MapUploadBody } from "../../types";
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
+import { MapMetaBody } from "../../types";
 
 export async function handlePostMapsUpload(
   request: Request,
@@ -19,21 +19,13 @@ export async function handlePostMapsUpload(
 
   if (!mapId) {
     logWarn(requestId, "route.maps.upload.bad_request", {
-      reason: "invalid mapId",
+      reason: "invalid map id",
     });
-    return bad("invalid mapId");
+    return bad("invalid map id");
   }
 
-  const exists = await env.DB.prepare(`SELECT 1 FROM maps WHERE id = ?`)
-    .bind(mapId)
-    .first();
-  if (exists) {
-    logWarn(requestId, "route.maps.upload.conflict", { mapId });
-    return bad("map already exists", 409);
-  }
-
-  const payload = (await request.json()) as MapUploadBody;
-  if (!payload?.Author) {
+  const mapMeta = (await request.json()) as MapMetaBody;
+  if (!mapMeta?.author) {
     logWarn(requestId, "route.maps.upload.bad_request", {
       mapId,
       reason: "author missing",
@@ -41,7 +33,7 @@ export async function handlePostMapsUpload(
     return bad("author is required");
   }
 
-  if (!payload?.Version && payload?.Version !== 0) {
+  if (!mapMeta?.version && mapMeta?.version !== 0) {
     logWarn(requestId, "route.maps.upload.bad_request", {
       mapId,
       reason: "version missing",
@@ -49,43 +41,59 @@ export async function handlePostMapsUpload(
     return bad("version is required");
   }
 
-  const key = `maps/${mapId}.z`;
-  const head = await env.R2.head(key);
+  const fileKey = `files/${mapId}/${mapMeta.version}/${mapMeta.created_at}`;
+  const head = await env.R2.head(fileKey);
   if (!head) {
-    logWarn(requestId, "route.maps.upload.bad_request", {
+    logWarn(requestId, "route.maps.upload.wait_for_file", {
       mapId,
       reason: "file not uploaded",
     });
-    return bad("file not uploaded yet, upload /files/upload/:id first", 400);
+    return bad(fileKey, 409);
   }
 
   await env.DB.prepare(
     `
-    INSERT INTO maps
-      (id, author, title, lang, cat, created_at, version, tag, is_official,
-       visit_count, rating_count, rating_average, file_key, file_size)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, ?, ?)
+    INSERT INTO maps (
+        file_key, id, author, title, language, category, created_at, version, tag, 
+        visit_count, rating_count, rating_average, file_size, preview_key
+    )
+    SELECT
+        ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        COALESCE(m.visit_count, 0),
+        COALESCE(m.rating_count, 0),
+        COALESCE(m.rating_average, 0),
+        ?, ?
+    FROM (SELECT 1) AS dummy
+    LEFT JOIN (
+        SELECT visit_count, rating_count, rating_average
+        FROM maps
+        WHERE id = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+    ) m ON 1=1;
   `,
   )
     .bind(
+      fileKey,
       mapId,
-      payload.Author,
-      payload.Title ?? null,
-      payload.Lang ?? null,
-      payload.Cat ?? null,
-      payload.Date ?? new Date().toISOString().slice(0, 19).replace("T", " "),
-      payload.Version,
-      payload.Tag ?? null,
-      payload.IsOfficial ? 1 : 0,
-      key,
+      mapMeta.author,
+      mapMeta.title,
+      mapMeta.language ?? null,
+      mapMeta.category ?? null,
+      mapMeta.created_at,
+      mapMeta.version,
+      mapMeta.tag ?? null,
       head.size ?? 0,
+      null,
+      mapId,
     )
     .run();
 
   logInfo(requestId, "route.maps.upload.ok", {
     mapId,
-    author: payload.Author,
-    version: payload.Version,
+    fileKey,
+    author: mapMeta.author,
+    version: mapMeta.version,
     fileSize: head.size ?? 0,
   });
 
