@@ -2,6 +2,7 @@ import { POST_COOLDOWN_SECONDS } from "../constants";
 import { maskIp } from "../utils/ip";
 import { logInfo, logWarn } from "../utils/logger";
 import { getClientIp } from "../utils/request";
+import { json } from "../utils/response";
 
 export async function enforcePostCooldown(
   request: Request,
@@ -19,19 +20,12 @@ export async function enforcePostCooldown(
       ip: maskIp(ip),
       ttl: POST_COOLDOWN_SECONDS,
     });
-    return new Response(
-      JSON.stringify({ error: "Too many POST requests. Try again later." }),
-      {
-        status: 429,
-        headers: {
-          "content-type": "application/json; charset=utf-8",
-          "retry-after": String(POST_COOLDOWN_SECONDS),
-        },
-      },
-    );
+    return json({ error: "Too many POST requests. Try again later." }, 429);
   }
 
-  await env.KV.put(key, "1", { expirationTtl: POST_COOLDOWN_SECONDS });
+  await env.KV.put(key, new Date().toISOString(), {
+    expirationTtl: POST_COOLDOWN_SECONDS,
+  });
   logInfo(requestId, "cooldown.set", {
     ip: maskIp(ip),
     ttl: POST_COOLDOWN_SECONDS,

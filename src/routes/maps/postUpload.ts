@@ -48,7 +48,7 @@ export async function handlePostMapsUpload(
       mapId,
       reason: "file not uploaded",
     });
-    return bad(fileKey, 409);
+    return json({ fileKey }, 409);
   }
 
   await env.DB.prepare(

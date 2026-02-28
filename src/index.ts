@@ -26,14 +26,20 @@ export default {
     logInfo(requestId, "request.start", { method, path });
 
     try {
-      const debugKey = request.headers.get("x-debugging-key");
-      if (debugKey !== null) {
+      const debugKey = request.headers.get("x-debugging-key")?.trim();
+      let bypass = false;
+      if (debugKey) {
         logInfo(requestId, "passthrough.debug_check", { attempt: debugKey });
         const passthrough = await env.KV.get(debugKey);
         if (passthrough === "passthrough") {
           logInfo(requestId, "passthrough.bypass", { reason: "debug-key" });
+          bypass = true;
+        } else {
+          logInfo(requestId, "passthrough.failed", { reason: "fail-attempt" });
         }
-      } else {
+      }
+
+      if (!bypass) {
         const banResp = await enforceIpBan(request, env, requestId);
         if (banResp) {
           logWarn(requestId, "request.end", {
@@ -73,9 +79,9 @@ export default {
         handleGetMapsQuery,
         handleGetMapsTop,
         handleGetMapsRating,
+        handlePostMapsUpload,
         handlePostMapsRating,
         handlePostFilesUpload,
-        handlePostMapsUpload,
       ];
 
       for (const h of handlers) {
