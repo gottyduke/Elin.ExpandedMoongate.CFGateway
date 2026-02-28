@@ -24,13 +24,10 @@ export async function enforceIpBan(
     banValue,
   });
 
-  return new Response(
-    JSON.stringify({ error: "Forbidden" }),
-    {
-      status: 403,
-      headers: {
-        "content-type": "application/json; charset=utf-8",
-      },
+  return new Response(JSON.stringify({ error: "Forbidden" }), {
+    status: 403,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
     },
-  );
+  });
 }

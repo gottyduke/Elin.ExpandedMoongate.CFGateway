@@ -65,6 +65,7 @@ export async function handleGetMapsRating(
     return json(rating);
   }
 
+  // discouraged for now
   const rating = await env.DB.prepare(
     `
     SELECT 

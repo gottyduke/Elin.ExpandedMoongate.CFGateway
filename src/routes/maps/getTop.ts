@@ -81,6 +81,10 @@ export async function handleGetMapsTop(
   ).bind(limit);
 
   const { results } = await stmt.all();
-  logInfo(requestId, "route.maps.top.ok", { sort, limit, resultCount: results.length });
+  logInfo(requestId, "route.maps.top.ok", {
+    sort,
+    limit,
+    resultCount: results.length,
+  });
   return json(results);
 }

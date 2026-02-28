@@ -13,8 +13,8 @@ export async function handleGetMapsQuery(
   const m = path.match(/^\/maps\/query\/([^\/]+)$/);
   if (!m || method !== "GET") return null;
 
-  const id = decodeURIComponent(m[1]);
-  logInfo(requestId, "route.maps.query.hit", { id });
+  const mapId = decodeURIComponent(m[1]);
+  logInfo(requestId, "route.maps.query.hit", { mapId });
 
   const map = await env.DB.prepare(
     `
@@ -37,28 +37,28 @@ export async function handleGetMapsQuery(
     WHERE id = ?
   `,
   )
-    .bind(id)
+    .bind(mapId)
     .first<{ [key: string]: any }>();
 
   if (!map) {
-    logInfo(requestId, "route.maps.query.not_found", { id });
+    logInfo(requestId, "route.maps.query.not_found", { mapId });
     return json({ found: false }, 404);
   }
 
-  const obj = await env.R2.head(map.file_key);
+  const obj = await env.R2.head(map.FileKey);
   if (!obj) {
     logInfo(requestId, "route.maps.query.not_found", {
-      id,
-      fileKey: map.file_key,
+      mapId,
+      fileKey: map.FileKey,
       reason: "r2 object missing",
     });
     return json({ found: false }, 404);
   }
 
   logInfo(requestId, "route.maps.query.found", {
-    id,
-    fileKey: map.file_key,
-    version: map.version,
+    mapId,
+    fileKey: map.FileKey,
+    version: map.Version,
   });
 
   return json(map, 200);

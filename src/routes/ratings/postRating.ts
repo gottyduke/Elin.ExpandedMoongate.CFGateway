@@ -21,7 +21,9 @@ export async function handlePostMapsRating(
   });
 
   if (!body?.MapId || !body?.UserId) {
-    logWarn(requestId, "route.ratings.post.bad_request", { reason: "mapId/userId missing" });
+    logWarn(requestId, "route.ratings.post.bad_request", {
+      reason: "mapId/userId missing",
+    });
     return bad("mapId and userId are required");
   }
 
@@ -44,30 +46,36 @@ export async function handlePostMapsRating(
 
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
 
-  await env.DB.prepare(`
+  await env.DB.prepare(
+    `
     INSERT INTO map_ratings (map_id, user_id, score, comment, rated_at)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(map_id, user_id) DO UPDATE SET
       score = excluded.score,
       comment = excluded.comment,
       rated_at = excluded.rated_at
-  `)
+  `,
+  )
     .bind(body.MapId, body.UserId, body.Score, body.Comment ?? null, now)
     .run();
 
-  const agg = await env.DB.prepare(`
+  const agg = await env.DB.prepare(
+    `
     SELECT COUNT(*) AS c, AVG(score) AS a
     FROM map_ratings
     WHERE map_id = ?
-  `)
+  `,
+  )
     .bind(body.MapId)
     .first<{ c: number; a: number }>();
 
-  await env.DB.prepare(`
+  await env.DB.prepare(
+    `
     UPDATE maps
     SET rating_count = ?, rating_average = ?
     WHERE id = ?
-  `)
+  `,
+  )
     .bind(agg?.c ?? 0, agg?.a ?? 0, body.MapId)
     .run();
 
