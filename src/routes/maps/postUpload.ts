@@ -41,26 +41,8 @@ export async function handlePostMapsUpload(
     return bad("version is required");
   }
 
-  const fileName = sanitizeFileName(`${mapId}/${mapMeta.created_at}`);
+  const fileName = sanitizeFileName(`${mapMeta.title}/${mapMeta.created_at}.z`);
   const fileKey = `files/${sanitizeFileName(mapMeta.author)}/${mapMeta.version}/${fileName}`;
-  const mapExist = await env.DB.prepare(
-    `
-    SELECT 1 
-    FROM maps
-    WHERE file_key = ?
-    `,
-  )
-    .bind(fileKey)
-    .first();
-
-  if (mapExist) {
-    logWarn(requestId, "route.maps.upload.conflict", {
-      mapId,
-      fileKey,
-      reason: "file with same key exists",
-    });
-    return bad("meta with the same id and version already exists", 409);
-  }
 
   const head = await env.R2.head(fileKey);
   if (!head) {
@@ -74,6 +56,25 @@ export async function handlePostMapsUpload(
       mapId,
     });
   }
+
+  const mapExist = await env.DB.prepare(
+    `
+    SELECT 1 
+    FROM maps
+    WHERE file_key = ?
+    `,
+  )
+    .bind(fileKey)
+    .first();
+  if (mapExist && head) {
+    logWarn(requestId, "route.maps.upload.conflict", {
+      mapId,
+      fileKey,
+      reason: "file with same key exists",
+    });
+    return bad("meta with the same id and version already exists", 409);
+  }
+
 
   await env.DB.prepare(
     `
