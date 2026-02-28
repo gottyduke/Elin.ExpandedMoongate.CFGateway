@@ -1,6 +1,6 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { MapMetaBody } from "../../types";
+import { MapDbRecord, MapMetaBody } from "../../types";
 
 export async function handlePostMapsUpload(
   request: Request,
@@ -33,7 +33,7 @@ export async function handlePostMapsUpload(
     return bad("author is required");
   }
 
-  if (!mapMeta?.version && mapMeta?.version !== 0) {
+  if (mapMeta.version == null) {
     logWarn(requestId, "route.maps.upload.bad_request", {
       mapId,
       reason: "version missing",
@@ -42,13 +42,36 @@ export async function handlePostMapsUpload(
   }
 
   const fileKey = `files/${mapId}/${mapMeta.version}/${mapMeta.created_at}`;
+  const mapExist = await env.DB.prepare(
+    `
+    SELECT 1 
+    FROM maps
+    WHERE file_key = ?
+    `,
+  )
+    .bind(fileKey)
+    .first();
+
+  if (mapExist) {
+    logWarn(requestId, "route.maps.upload.conflict", {
+      mapId,
+      fileKey,
+      reason: "file with same key exists",
+    });
+    return bad("meta with the same id and version already exists", 409);
+  }
+
   const head = await env.R2.head(fileKey);
   if (!head) {
     logWarn(requestId, "route.maps.upload.wait_for_file", {
       mapId,
       reason: "file not uploaded",
     });
-    return json({ fileKey }, 409);
+    return json({ fileKey }, 424);
+  } else {
+    logInfo(requestId, "route.maps.upload.file_found", {
+      mapId,
+    });
   }
 
   await env.DB.prepare(
