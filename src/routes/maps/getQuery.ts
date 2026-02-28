@@ -16,13 +16,33 @@ export async function handleGetMapsQuery(
   const id = decodeURIComponent(m[1]);
   logInfo(requestId, "route.maps.query.hit", { id });
 
-  const map = await env.DB.prepare(`SELECT file_key FROM maps WHERE id = ?`)
+  const map = await env.DB.prepare(
+    `
+    SELECT
+      id AS Id, 
+      author AS Author, 
+      title AS Title, 
+      lang AS Lang, 
+      cat AS Cat, 
+      created_at AS CreatedAt, 
+      version AS Version, 
+      tag AS Tag, 
+      is_official AS IsOfficial,
+      visit_count AS VisitCount, 
+      rating_count AS RatingCount, 
+      rating_average AS RatingAverage, 
+      file_key AS FileKey, 
+      file_size AS FileSize
+    FROM maps
+    WHERE id = ?
+  `,
+  )
     .bind(id)
-    .first<{ file_key: string }>();
+    .first<{ [key: string]: any }>();
 
   if (!map) {
     logInfo(requestId, "route.maps.query.not_found", { id });
-    return json({ found: false });
+    return json({ found: false }, 404);
   }
 
   const obj = await env.R2.head(map.file_key);
@@ -30,10 +50,16 @@ export async function handleGetMapsQuery(
     logInfo(requestId, "route.maps.query.not_found", {
       id,
       fileKey: map.file_key,
+      reason: "r2 object missing",
     });
     return json({ found: false }, 404);
   }
 
-  logInfo(requestId, "route.maps.query.found", { id, fileKey: map.file_key });
-  return json({ found: true, fileKey: map.file_key }, 200);
+  logInfo(requestId, "route.maps.query.found", {
+    id,
+    fileKey: map.file_key,
+    version: map.version,
+  });
+
+  return json(map, 200);
 }
