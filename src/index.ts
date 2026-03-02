@@ -40,6 +40,17 @@ export default {
       }
 
       if (!bypass) {
+        const steamId = request.headers.get("x-request-id");
+        if (!steamId) {
+          logWarn(requestId, "request.end", {
+            method,
+            path,
+            status: 400,
+            durationMs: Date.now() - startedAt,
+          });
+          return withRequestId(bad("Missing Steam ID", 400), requestId);
+        }
+
         const banResp = await enforceIpBan(request, env, requestId);
         if (banResp) {
           logWarn(requestId, "request.end", {
@@ -60,17 +71,6 @@ export default {
             durationMs: Date.now() - startedAt,
           });
           return withRequestId(cooldownResp, requestId);
-        }
-
-        const steamId = request.headers.get("x-request-id");
-        if (!steamId) {
-          logWarn(requestId, "request.end", {
-            method,
-            path,
-            status: 400,
-            durationMs: Date.now() - startedAt,
-          });
-          return withRequestId(bad("Missing Steam ID", 400), requestId);
         }
       }
 
