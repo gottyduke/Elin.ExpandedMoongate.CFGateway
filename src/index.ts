@@ -9,7 +9,7 @@ import { enforceIpBan } from "./middleware/ban";
 import { handlePostFilesUpload } from "./routes/files/postUpload";
 import { handlePostMapsUpload } from "./routes/maps/postUpload";
 import { handleGetMapsDownload } from "./routes/maps/getDownload";
-import { handleGetMapsRating } from "./routes/ratings/getRatings";
+import { handleGetRatingsTop } from "./routes/ratings/getTop";
 import { handlePostMapsRating } from "./routes/ratings/postRating";
 import { handleGetMapsTop } from "./routes/maps/getTop";
 import { handleGetMapsQuery } from "./routes/maps/getQuery";
@@ -78,7 +78,7 @@ export default {
         handleGetMapsDownload,
         handleGetMapsQuery,
         handleGetMapsTop,
-        handleGetMapsRating,
+        handleGetRatingsTop,
         handlePostMapsUpload,
         handlePostMapsRating,
         handlePostFilesUpload,

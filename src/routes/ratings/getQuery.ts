@@ -2,7 +2,7 @@ import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 import { RatingDbRecord } from "../../types";
 
-export async function handleGetMapsQuery(
+export async function handleGetRatingsQuery(
   request: Request,
   env: Env,
   requestId: string,
@@ -14,19 +14,19 @@ export async function handleGetMapsQuery(
   const m = path.match(/^\/ratings\/([^\/]+)\/([^\/]+)$/);
   if (!m || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1] ?? "")?.trim();
-  const userId = Math.min(parseInt(m[2], 10), 100);
+  const userId = decodeURIComponent(m[1] ?? "")?.trim();
+  const mapId = decodeURIComponent(m[2] ?? "")?.trim();
 
   logInfo(requestId, "route.ratings.get.hit", {
-    mapId: mapId,
-    userId: userId,
+    mapId,
+    userId,
   });
 
   if (!mapId || !userId) {
     logWarn(requestId, "route.ratings.get.bad_request", {
       reason: "map id or user id missing",
     });
-    return bad("map id and user id are required");
+    return bad("map id or user id missing");
   }
 
   const mapExists = await env.DB.prepare(

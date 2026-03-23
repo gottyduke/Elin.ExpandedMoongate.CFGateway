@@ -15,7 +15,7 @@
   },
   "routes": [
     {
-      "pattern": "api-exmoongate.elin-modding.net",
+      "pattern": "api.exmoongate.elin-modding.net",
       "zone_name": "elin-modding.net",
       "custom_domain": true
     }
