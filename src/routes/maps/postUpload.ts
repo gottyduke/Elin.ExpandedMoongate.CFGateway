@@ -85,23 +85,22 @@ export async function handlePostMapsUpload(
     `
     INSERT INTO maps (
         file_key, id, author, title, language, category, created_at, version, tag, 
-        visit_count, rating_count, rating_average, file_size, preview_key
+        visit_count, rating_count, file_size, preview_key
     )
     SELECT
         ?, ?, ?, ?, ?, ?, ?, ?, ?,
         COALESCE(m.visit_count, 0),
         COALESCE(m.rating_count, 0),
-        COALESCE(m.rating_average, 0),
         ?, ?
     FROM (SELECT 1) AS dummy
     LEFT JOIN (
-        SELECT visit_count, rating_count, rating_average
+        SELECT visit_count, rating_count
         FROM maps
         WHERE id = ?
         ORDER BY created_at DESC
         LIMIT 1
     ) m ON 1=1;
-  `,
+    `,
   )
     .bind(
       fileKey,
@@ -117,6 +116,18 @@ export async function handlePostMapsUpload(
       null,
       mapId,
     )
+    .run();
+
+  await env.DB.prepare(
+    `
+    DELETE FROM maps_latest WHERE id = ?;
+    INSERT INTO maps_latest
+    SELECT *
+    FROM maps
+    WHERE id = ? AND created_at = (SELECT MAX(created_at) FROM maps WHERE id = ?);
+    `,
+  )
+    .bind(mapId, mapId, mapId)
     .run();
 
   logInfo(requestId, "route.maps.upload.ok", {

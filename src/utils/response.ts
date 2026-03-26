@@ -9,6 +9,17 @@ export function bad(msg: string, status = 400) {
   return json({ error: msg }, status);
 }
 
+export function raw(
+  body: BodyInit | null,
+  status = 200,
+  headers?: HeadersInit,
+) {
+  return new Response(body, {
+    status,
+    headers,
+  });
+}
+
 export function withRequestId(resp: Response, requestId: string) {
   const headers = new Headers(resp.headers);
   headers.set("x-request-id", requestId);

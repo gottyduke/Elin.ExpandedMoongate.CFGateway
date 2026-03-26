@@ -27,12 +27,12 @@ export async function handleGetMapsQuery(
   const map = await env.DB.prepare(
     `
     SELECT file_key, id, author, title, language, category, created_at, version, tag, 
-        visit_count, rating_count, rating_average, file_size, preview_key
+        visit_count, rating_count, file_size, preview_key
     FROM maps
     WHERE id = ?
     ORDER BY created_at DESC
     LIMIT 1
-  `,
+    `,
   )
     .bind(mapId)
     .first<MapDbRecord>();

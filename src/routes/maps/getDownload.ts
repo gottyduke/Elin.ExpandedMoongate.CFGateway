@@ -1,4 +1,4 @@
-import { bad } from "../../utils/response";
+import { bad, raw } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 
 export async function handleGetMapsDownload(
@@ -29,7 +29,8 @@ export async function handleGetMapsDownload(
     FROM maps 
     WHERE id = ?
     ORDER BY created_at DESC
-    LIMIT 1`,
+    LIMIT 1
+    `,
   )
     .bind(mapId)
     .first<{ file_key: string }>();
@@ -71,5 +72,5 @@ export async function handleGetMapsDownload(
     mapId,
     fileKey: map.file_key,
   });
-  return new Response(obj.body, { status: 200, headers });
+  return raw(obj.body, 200, headers);
 }

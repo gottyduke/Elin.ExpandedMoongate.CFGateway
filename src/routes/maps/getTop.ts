@@ -1,5 +1,5 @@
-import { json } from "../../utils/response";
-import { logInfo } from "../../utils/logger";
+import { bad, json } from "../../utils/response";
+import { logInfo, logWarn } from "../../utils/logger";
 import { MapDbRecord } from "../../types";
 
 export async function handleGetMapsTop(
@@ -14,8 +14,10 @@ export async function handleGetMapsTop(
   if (path !== "/maps/top" || method !== "GET") return null;
 
   const sortParam = url.searchParams.get("sort");
-  const limitParam = url.searchParams.get("limit");
+  const countParam = url.searchParams.get("count");
   const pageParam = url.searchParams.get("page");
+  const langParam = url.searchParams.get("lang");
+  const tagParam = url.searchParams.get("noTags");
   const versionParam = url.searchParams.get("version");
 
   const validSorts = new Set(["created", "rating", "visits"]);
@@ -24,84 +26,72 @@ export async function handleGetMapsTop(
     ? (sortParam as "created" | "rating" | "visits")
     : "created";
 
-  const limit = Math.min(
-    Math.max(parseInt(limitParam ?? "30", 10) || 30, 10),
-    300,
-  );
-  const page = Math.max(parseInt(pageParam ?? "0", 10) || 0, 0);
-  const offset = limit * page;
+  const count = Math.min(Math.max(Number(countParam) || 30, 10), 300);
+  const page = Math.max(Number(pageParam) || 0, 0);
+  const offset = count * page;
 
-  const version = parseInt(versionParam ?? "1000000", 10) || 1000000;
+  const version = Number(versionParam) || 1000000;
 
   logInfo(requestId, "route.maps.top.hit", {
     sort,
-    limit,
+    count,
     page,
     offset,
     version,
   });
 
-  if (sort === "rating") {
-    const minVotes = 20;
-    const global = await env.DB.prepare(
-      `
-      SELECT AVG(score) as c 
-      FROM ratings
-      `,
-    ).first<{ c: number | null }>();
-    const C = global?.c ?? 3.5;
+  const filters: string[] = ["version <= ?"];
+  const binds: any[] = [version];
 
-    const { results } = await env.DB.prepare(
-      `
-      SELECT m.*,
-      (((rating_count * rating_average) + (? * ?)) / (rating_count + ?)) AS weighted_rating
-      FROM maps m
-      INNER JOIN (
-        SELECT id, MAX(created_at) AS max_created
-        FROM maps
-        GROUP BY id
-      ) latest
-      ON m.id = latest.id AND m.created_at = latest.max_created
-      ORDER BY weighted_rating DESC, rating_count DESC, created_at DESC
-      LIMIT ? OFFSET ?
-      `,
-    )
-      .bind(minVotes, C, minVotes, limit, offset)
-      .all<MapDbRecord>();
-    logInfo(requestId, "route.maps.top.ok", {
-      sort,
-      limit,
-      page,
-      offset,
-      count: results.length,
-    });
-    return json(results);
+  if (langParam?.trim()) {
+    filters.push("language = ?");
+    binds.push(langParam.trim());
   }
 
-  const orderBy = sort === "created" ? "created_at DESC" : "visit_count DESC";
-  const { results } = await env.DB.prepare(
+  if (tagParam?.trim()) {
+    tagParam
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .forEach((tag) => {
+        filters.push("tag NOT LIKE ?");
+        binds.push(`%${tag}%`);
+      });
+  }
+
+  const where = `WHERE ${filters.join(" AND ")}`;
+  const sortMap: Record<string, string> = {
+    rating: "rating_count",
+    visits: "visit_count",
+    created: "created_at",
+  };
+  const sortOrder = sortMap[sort] || "created_at";
+
+  const result = await env.DB.prepare(
     `
-    SELECT m.*
-    FROM maps m
-    INNER JOIN (
-        SELECT id, MAX(created_at) AS max_created
-        FROM maps
-        GROUP BY id
-    ) latest
-    ON m.id = latest.id AND m.created_at = latest.max_created
-    ORDER BY ${orderBy}
+    SELECT *
+    FROM maps_latest
+    ${where}
+    ORDER BY ${sortOrder} DESC
     LIMIT ? OFFSET ?
-  `,
+    `,
   )
-    .bind(limit, offset)
+    .bind(...binds, count, offset)
     .all<MapDbRecord>();
+
+  if (!result || !result.success) {
+    logWarn(requestId, "route.maps.top.db_error", {
+      error: result.error,
+    });
+    return bad("Database error", 500);
+  }
 
   logInfo(requestId, "route.maps.top.ok", {
     sort,
-    limit,
+    count,
     page,
     offset,
-    count: results.length,
+    fetched: result.results.length,
   });
-  return json(results);
+  return json(result.results);
 }

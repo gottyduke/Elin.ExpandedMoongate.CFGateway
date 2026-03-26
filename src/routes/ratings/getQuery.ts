@@ -11,19 +11,19 @@ export async function handleGetRatingsQuery(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/ratings\/([^\/]+)\/([^\/]+)$/);
+  const m = path.match(/^\/ratings\/query\/([^\/]+)\/([^\/]+)$/);
   if (!m || method !== "GET") return null;
 
   const userId = decodeURIComponent(m[1] ?? "")?.trim();
   const mapId = decodeURIComponent(m[2] ?? "")?.trim();
 
-  logInfo(requestId, "route.ratings.get.hit", {
+  logInfo(requestId, "route.ratings.query.hit", {
     mapId,
     userId,
   });
 
   if (!mapId || !userId) {
-    logWarn(requestId, "route.ratings.get.bad_request", {
+    logWarn(requestId, "route.ratings.query.bad_request", {
       reason: "map id or user id missing",
     });
     return bad("map id or user id missing");
@@ -42,7 +42,7 @@ export async function handleGetRatingsQuery(
     .first();
 
   if (!mapExists) {
-    logWarn(requestId, "route.ratings.get.not_found", { mapId });
+    logWarn(requestId, "route.ratings.query.not_found", { mapId });
     return bad("map not found", 404);
   }
 
@@ -57,7 +57,7 @@ export async function handleGetRatingsQuery(
     .bind(mapId, userId)
     .first<RatingDbRecord>();
 
-  logInfo(requestId, "route.ratings.get.ok", {
+  logInfo(requestId, "route.ratings.query.ok", {
     mapId,
     userId,
     rating,

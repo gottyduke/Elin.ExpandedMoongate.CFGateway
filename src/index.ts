@@ -9,10 +9,10 @@ import { enforceIpBan } from "./middleware/ban";
 import { handlePostFilesUpload } from "./routes/files/postUpload";
 import { handlePostMapsUpload } from "./routes/maps/postUpload";
 import { handleGetMapsDownload } from "./routes/maps/getDownload";
-import { handleGetRatingsTop } from "./routes/ratings/getTop";
 import { handlePostMapsRating } from "./routes/ratings/postRating";
 import { handleGetMapsTop } from "./routes/maps/getTop";
 import { handleGetMapsQuery } from "./routes/maps/getQuery";
+import { handleGetMapsOverview } from "./routes/maps/getOverview";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -78,7 +78,7 @@ export default {
         handleGetMapsDownload,
         handleGetMapsQuery,
         handleGetMapsTop,
-        handleGetRatingsTop,
+        handleGetMapsOverview,
         handlePostMapsUpload,
         handlePostMapsRating,
         handlePostFilesUpload,

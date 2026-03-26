@@ -64,11 +64,12 @@ export async function handlePostMapsRating(
     `
     INSERT INTO ratings (uuid, map_id, author, score, comment, rated_at)
     VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(map_id, author) DO UPDATE SET
+    ON CONFLICT(map_id, author) 
+    DO UPDATE SET
       score = excluded.score,
       comment = excluded.comment,
       rated_at = excluded.rated_at
-  `,
+    `,
   )
     .bind(requestId, mapId, body.author, body.score, body.comment ?? null, now)
     .run();
@@ -78,7 +79,7 @@ export async function handlePostMapsRating(
     SELECT COUNT(*) AS c, AVG(score) AS a
     FROM ratings
     WHERE map_id = ?
-  `,
+    `,
   )
     .bind(mapId)
     .first<{ c: number; a: number }>();
@@ -90,7 +91,7 @@ export async function handlePostMapsRating(
     WHERE id = ?
     ORDER BY created_at DESC
     LIMIT 1
-  `,
+    `,
   )
     .bind(agg?.c ?? 0, agg?.a ?? 0, mapId)
     .run();

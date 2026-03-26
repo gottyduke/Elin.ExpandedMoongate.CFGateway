@@ -1,7 +1,7 @@
 import { maskIp } from "../utils/ip";
 import { logWarn } from "../utils/logger";
 import { getClientIp } from "../utils/request";
-import { json } from "../utils/response";
+import { bad, json } from "../utils/response";
 
 export async function enforceIpBan(
   request: Request,
@@ -25,5 +25,5 @@ export async function enforceIpBan(
     banValue,
   });
 
-  return json({ error: "IP rate limited" }, 403);
+  return bad("IP rate limited", 403);
 }
