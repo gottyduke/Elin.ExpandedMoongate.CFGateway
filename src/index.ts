@@ -1,4 +1,4 @@
-import { makeRequestId } from "./utils/request";
+import { getClientIp, makeRequestId } from "./utils/request";
 import { safeError } from "./utils/error";
 import { withRequestId, json, bad } from "./utils/response";
 import { logError, logInfo, logWarn } from "./utils/logger";
@@ -13,6 +13,8 @@ import { handlePostMapsRating } from "./routes/ratings/postRating";
 import { handleGetMapsTop } from "./routes/maps/getTop";
 import { handleGetMapsQuery } from "./routes/maps/getQuery";
 import { handleGetMapsOverview } from "./routes/maps/getOverview";
+import { handleGetRatingsQuery } from "./routes/ratings/getQuery";
+import { handleGetMapsHistory } from "./routes/maps/getHistory";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -23,13 +25,16 @@ export default {
     const path = url.pathname;
     const method = request.method.toUpperCase();
 
-    logInfo(requestId, "request.start", { method, path });
+    logInfo(requestId, "request.start", {
+      method,
+      path,
+      ip: getClientIp(request),
+    });
 
     try {
       const debugKey = request.headers.get("x-debugging-key")?.trim();
       let bypass = false;
       if (debugKey) {
-        logInfo(requestId, "passthrough.debug_check", { attempt: debugKey });
         const passthrough = await env.KV.get(debugKey);
         if (passthrough === "passthrough") {
           logInfo(requestId, "passthrough.bypass", { reason: "debug-key" });
@@ -79,6 +84,8 @@ export default {
         handleGetMapsQuery,
         handleGetMapsTop,
         handleGetMapsOverview,
+        handleGetMapsHistory,
+        handleGetRatingsQuery,
         handlePostMapsUpload,
         handlePostMapsRating,
         handlePostFilesUpload,
@@ -99,12 +106,6 @@ export default {
 
       const notFoundResp = bad("Not Found", 404);
       logWarn(requestId, "route.not_found", { method, path });
-      logInfo(requestId, "request.end", {
-        method,
-        path,
-        status: notFoundResp.status,
-        durationMs: Date.now() - startedAt,
-      });
       return withRequestId(notFoundResp, requestId);
     } catch (e: unknown) {
       logError(requestId, "request.error", {

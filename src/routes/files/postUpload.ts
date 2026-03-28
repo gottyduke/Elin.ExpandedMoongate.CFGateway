@@ -12,10 +12,10 @@ export async function handlePostFilesUpload(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/files\/upload\/([^\/]+)$/);
-  if (!m || method !== "POST") return null;
+  if (path !== "/files/upload" || method !== "POST") return null;
 
-  const fileKeyId = decodeURIComponent(m[1]);
+  const fileKeyId = url.searchParams.get("fileKeyId")?.trim() ?? "";
+
   logInfo(requestId, "route.files.upload.hit", { fileKeyId });
 
   if (!fileKeyId) {

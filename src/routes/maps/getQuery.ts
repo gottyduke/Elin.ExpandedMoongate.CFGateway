@@ -11,10 +11,10 @@ export async function handleGetMapsQuery(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/maps\/query\/([^\/]+)$/);
-  if (!m || method !== "GET") return null;
+  if (path !== "/maps/query" || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1])?.trim();
+  const mapId = url.searchParams.get("mapId")?.trim() ?? "";
+
   logInfo(requestId, "route.maps.query.hit", { mapId });
 
   if (!mapId) {
@@ -26,12 +26,10 @@ export async function handleGetMapsQuery(
 
   const map = await env.DB.prepare(
     `
-    SELECT file_key, id, author, title, language, category, created_at, version, tag, 
-        visit_count, rating_count, file_size, preview_key
-    FROM maps
+    SELECT file_key, id, author, title, language, category, created_at, 
+        version, tag, rating_count, visit_count, preview_key, file_size
+    FROM maps_latest
     WHERE id = ?
-    ORDER BY created_at DESC
-    LIMIT 1
     `,
   )
     .bind(mapId)

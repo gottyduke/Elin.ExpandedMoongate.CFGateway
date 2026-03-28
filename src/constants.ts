@@ -1,2 +1,2 @@
-export const POST_COOLDOWN_SECONDS = 120; // 2 minutes
-export const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
+export const POST_COOLDOWN_SECONDS = 60; // 60 seconds
+export const MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024; // 100MB

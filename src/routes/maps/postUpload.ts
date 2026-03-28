@@ -1,6 +1,6 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { MapDbRecord, MapMetaBody } from "../../types";
+import { MapMetaBody } from "../../types";
 import { makeRequestId } from "../../utils/request";
 
 export async function handlePostMapsUpload(
@@ -12,10 +12,10 @@ export async function handlePostMapsUpload(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/maps\/upload\/([^\/]+)$/);
-  if (!m || method !== "POST") return null;
+  if (path !== "/maps/upload" || method !== "POST") return null;
 
-  const mapId = decodeURIComponent(m[1])?.trim();
+  const mapId = url.searchParams.get("mapId")?.trim() ?? "";
+
   logInfo(requestId, "route.maps.upload.hit", { mapId });
 
   if (!mapId) {
@@ -87,19 +87,7 @@ export async function handlePostMapsUpload(
         file_key, id, author, title, language, category, created_at, version, tag, 
         visit_count, rating_count, file_size, preview_key
     )
-    SELECT
-        ?, ?, ?, ?, ?, ?, ?, ?, ?,
-        COALESCE(m.visit_count, 0),
-        COALESCE(m.rating_count, 0),
-        ?, ?
-    FROM (SELECT 1) AS dummy
-    LEFT JOIN (
-        SELECT visit_count, rating_count
-        FROM maps
-        WHERE id = ?
-        ORDER BY created_at DESC
-        LIMIT 1
-    ) m ON 1=1;
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?);
     `,
   )
     .bind(
@@ -114,20 +102,7 @@ export async function handlePostMapsUpload(
       mapMeta.tag ?? null,
       head.size ?? 0,
       null,
-      mapId,
     )
-    .run();
-
-  await env.DB.prepare(
-    `
-    DELETE FROM maps_latest WHERE id = ?;
-    INSERT INTO maps_latest
-    SELECT *
-    FROM maps
-    WHERE id = ? AND created_at = (SELECT MAX(created_at) FROM maps WHERE id = ?);
-    `,
-  )
-    .bind(mapId, mapId, mapId)
     .run();
 
   logInfo(requestId, "route.maps.upload.ok", {

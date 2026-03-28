@@ -11,19 +11,18 @@ export async function handleGetRatingsQuery(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/ratings\/query\/([^\/]+)\/([^\/]+)$/);
-  if (!m || method !== "GET") return null;
+  if (path !== "/ratings" || method !== "GET") return null;
 
-  const userId = decodeURIComponent(m[1] ?? "")?.trim();
-  const mapId = decodeURIComponent(m[2] ?? "")?.trim();
+  const userId = url.searchParams.get("userId")?.trim() ?? "";
+  const mapId = url.searchParams.get("mapId")?.trim() ?? "";
 
-  logInfo(requestId, "route.ratings.query.hit", {
+  logInfo(requestId, "route.ratings.get.hit", {
     mapId,
     userId,
   });
 
   if (!mapId || !userId) {
-    logWarn(requestId, "route.ratings.query.bad_request", {
+    logWarn(requestId, "route.ratings.get.bad_request", {
       reason: "map id or user id missing",
     });
     return bad("map id or user id missing");
@@ -31,33 +30,30 @@ export async function handleGetRatingsQuery(
 
   const mapExists = await env.DB.prepare(
     `
-    SELECT 1 
-    FROM maps 
-    WHERE id = ? 
-    ORDER BY created_at DESC 
-    LIMIT 1
+    SELECT 1
+    FROM maps_latest
+    WHERE id = ?
     `,
   )
     .bind(mapId)
     .first();
 
   if (!mapExists) {
-    logWarn(requestId, "route.ratings.query.not_found", { mapId });
+    logWarn(requestId, "route.ratings.get.not_found", { mapId });
     return bad("map not found", 404);
   }
 
   const rating = await env.DB.prepare(
     `
-      SELECT uuid, map_id, author, score, comment, rated_at
-      FROM ratings
-      WHERE map_id = ? AND author = ?
-      LIMIT 1
+    SELECT map_id, user_id, rated_at, visited_at
+    FROM ratings
+    WHERE map_id = ? AND user_id = ?
     `,
   )
     .bind(mapId, userId)
     .first<RatingDbRecord>();
 
-  logInfo(requestId, "route.ratings.query.ok", {
+  logInfo(requestId, "route.ratings.get.ok", {
     mapId,
     userId,
     rating,

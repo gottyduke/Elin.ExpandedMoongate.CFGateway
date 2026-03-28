@@ -11,10 +11,9 @@ export async function handlePostMapsRating(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/ratings\/([^\/]+)/);
-  if (!m || method !== "POST") return null;
+  if (path !== "/ratings" || method !== "POST") return null;
 
-  const mapId = decodeURIComponent(m[1] ?? "")?.trim();
+  const mapId = url.searchParams.get("mapId")?.trim() ?? "";
   const body = (await request.json()) as RatingBody;
 
   if (body.map_id !== mapId) {
@@ -26,80 +25,49 @@ export async function handlePostMapsRating(
     return bad("map id in url and body must match");
   }
 
-  logInfo(requestId, "route.ratings.post.hit", {
-    mapId: mapId,
-    score: body?.score,
-    comment: body?.comment,
-    author: body?.author,
-  });
+  const liked = body.rated_at !== null;
 
-  if (!Number.isInteger(body.score) || body.score < 1 || body.score > 5) {
-    logWarn(requestId, "route.ratings.post.bad_request", {
-      mapId: mapId,
-      reason: "invalid score",
-      score: body.score,
-    });
-    return bad("score must be integer 1..5");
-  }
+  logInfo(requestId, "route.ratings.post.hit", {
+    mapId,
+    userId: body.user_id,
+    liked,
+  });
 
   const mapExists = await env.DB.prepare(
     `
-    SELECT 1 
-    FROM maps 
+    SELECT 1
+    FROM maps_latest
     WHERE id = ?
-    ORDER BY created_at DESC
     LIMIT 1
     `,
   )
     .bind(mapId)
     .first();
   if (!mapExists) {
-    logWarn(requestId, "route.ratings.post.not_found", { mapId: mapId });
+    logWarn(requestId, "route.ratings.post.not_found", { mapId });
     return bad("map not found", 404);
   }
 
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const ratedAt = liked ? now : null;
 
   await env.DB.prepare(
     `
-    INSERT INTO ratings (uuid, map_id, author, score, comment, rated_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-    ON CONFLICT(map_id, author) 
+    INSERT INTO ratings (map_id, user_id, rated_at, visited_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(map_id, user_id)
     DO UPDATE SET
-      score = excluded.score,
-      comment = excluded.comment,
-      rated_at = excluded.rated_at
+        rated_at = excluded.rated_at,
+        visited_at = excluded.visited_at
     `,
   )
-    .bind(requestId, mapId, body.author, body.score, body.comment ?? null, now)
-    .run();
-
-  const agg = await env.DB.prepare(
-    `
-    SELECT COUNT(*) AS c, AVG(score) AS a
-    FROM ratings
-    WHERE map_id = ?
-    `,
-  )
-    .bind(mapId)
-    .first<{ c: number; a: number }>();
-
-  await env.DB.prepare(
-    `
-    UPDATE maps
-    SET rating_count = ?, rating_average = ?
-    WHERE id = ?
-    ORDER BY created_at DESC
-    LIMIT 1
-    `,
-  )
-    .bind(agg?.c ?? 0, agg?.a ?? 0, mapId)
+    .bind(mapId, body.user_id, ratedAt, now)
     .run();
 
   logInfo(requestId, "route.ratings.post.ok", {
     mapId: mapId,
-    count: agg?.c ?? 0,
-    average: agg?.a ?? 0,
+    userId: body.user_id,
+    liked,
   });
 
   return json({ ok: true });

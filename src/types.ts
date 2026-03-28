@@ -1,11 +1,11 @@
 export interface RatingBody {
   map_id: string;
   user_id: string;
-  visited_at: string;
+  rated_at?: string;
 }
 
 export interface RatingDbRecord extends RatingBody {
-  rated_at?: string;
+  visited_at: string;
 }
 
 export interface MapMetaBody {
@@ -23,6 +23,19 @@ export interface MapDbRecord extends MapMetaBody {
   file_key: string;
   visit_count: number;
   rating_count: number;
-  file_size: number;
   preview_key?: string;
+  file_size: number;
+}
+
+export interface MapDbRecordWithRating extends MapDbRecord {
+  user_rating?: RatingDbRecord;
+}
+
+export interface MapsOverviewBody {
+  maps_count: number;
+  visits_count: number;
+  ratings_count: number;
+  maps_today: number;
+  visits_today: number;
+  ratings_today: number;
 }

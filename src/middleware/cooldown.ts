@@ -1,8 +1,7 @@
 import { POST_COOLDOWN_SECONDS } from "../constants";
-import { maskIp } from "../utils/ip";
 import { logInfo, logWarn } from "../utils/logger";
 import { getClientIp } from "../utils/request";
-import { bad, json } from "../utils/response";
+import { bad } from "../utils/response";
 
 export async function enforcePostCooldown(
   request: Request,
@@ -12,23 +11,35 @@ export async function enforcePostCooldown(
   if (request.method.toUpperCase() !== "POST") return null;
 
   const ip = getClientIp(request);
-
   const key = `post-cooldown:${ip}`;
+
+  const now = Date.now();
+  const cooldownMs = POST_COOLDOWN_SECONDS * 1000;
+
   const existing = await env.KV.get(key);
+
   if (existing) {
-    logWarn(requestId, "cooldown.blocked", {
-      ip: maskIp(ip),
-      ttl: POST_COOLDOWN_SECONDS,
-    });
-    return bad("Too many POST requests. Try again later.", 429);
+    const lastTime = Number(existing);
+    const diff = now - lastTime;
+
+    if (diff < cooldownMs) {
+      logWarn(requestId, "cooldown.blocked", {
+        ip,
+        remainingMs: cooldownMs - diff,
+      });
+
+      return bad("Too many POST requests. Try again later.", 429);
+    }
   }
 
-  await env.KV.put(key, new Date().toISOString(), {
-    expirationTtl: POST_COOLDOWN_SECONDS,
+  await env.KV.put(key, now.toString(), {
+    expirationTtl: 60,
   });
+
   logInfo(requestId, "cooldown.set", {
-    ip: maskIp(ip),
+    ip,
     ttl: POST_COOLDOWN_SECONDS,
   });
+
   return null;
 }

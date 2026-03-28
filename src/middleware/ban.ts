@@ -1,4 +1,3 @@
-import { maskIp } from "../utils/ip";
 import { logWarn } from "../utils/logger";
 import { getClientIp } from "../utils/request";
 import { bad, json } from "../utils/response";
@@ -21,7 +20,7 @@ export async function enforceIpBan(
   if (!banValue) return null;
 
   logWarn(requestId, "ip_ban.blocked", {
-    ip: maskIp(ip),
+    ip,
     banValue,
   });
 

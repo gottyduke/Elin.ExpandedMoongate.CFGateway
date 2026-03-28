@@ -10,12 +10,11 @@ export async function handleGetMapsDownload(
   const path = url.pathname;
   const method = request.method.toUpperCase();
 
-  const m = path.match(/^\/maps\/download\/([^\/]+)$/);
-  if (!m || method !== "GET") return null;
+  if (path !== "/maps/download" || method !== "GET") return null;
 
-  const mapId = decodeURIComponent(m[1])?.trim();
+  const mapId = url.searchParams.get("mapId")?.trim() ?? "";
+
   logInfo(requestId, "route.maps.download.hit", { mapId });
-
   if (!mapId) {
     logWarn(requestId, "route.maps.download.bad_request", {
       reason: "invalid map id",
@@ -25,15 +24,13 @@ export async function handleGetMapsDownload(
 
   const map = await env.DB.prepare(
     `
-    SELECT file_key 
-    FROM maps 
+    SELECT file_key, id 
+    FROM maps_latest 
     WHERE id = ?
-    ORDER BY created_at DESC
-    LIMIT 1
     `,
   )
     .bind(mapId)
-    .first<{ file_key: string }>();
+    .first<{ file_key: string; id: string }>();
 
   if (!map) {
     logWarn(requestId, "route.maps.download.not_found", { mapId });
@@ -51,14 +48,25 @@ export async function handleGetMapsDownload(
 
   await env.DB.prepare(
     `
-    UPDATE maps 
-    SET visit_count = visit_count + 1 
-    WHERE id = ? 
-    ORDER BY created_at DESC
-    LIMIT 1
+    UPDATE maps
+    SET visit_count = visit_count + 1
+    WHERE id = ?
+        AND created_at = (SELECT MAX(created_at) FROM maps WHERE id = ?);
     `,
   )
-    .bind(mapId)
+    .bind(mapId, mapId)
+    .run();
+
+  await env.DB.prepare(
+    `
+    UPDATE maps_latest
+    SET visit_count = (
+        SELECT SUM(visit_count) FROM maps WHERE id = ?
+    )
+    WHERE id = ?;
+    `,
+  )
+    .bind(mapId, mapId)
     .run();
 
   const headers = new Headers();
