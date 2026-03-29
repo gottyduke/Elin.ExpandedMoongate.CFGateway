@@ -9,20 +9,12 @@ export async function enforceIpBan(
 ): Promise<Response | null> {
   const ip = getClientIp(request);
 
-  if (ip === "unknown") {
-    logWarn(requestId, "ip_ban.skip_unknown_ip", {});
-    return null;
-  }
+  if (ip === "unknown") return null;
 
   const key = `ip-ban:${ip}`;
   const banValue = await env.KV.get(key);
 
   if (!banValue) return null;
-
-  logWarn(requestId, "ip_ban.blocked", {
-    ip,
-    banValue,
-  });
 
   return bad("IP rate limited", 403);
 }

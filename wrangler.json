@@ -1,5 +1,5 @@
 {
-  "compatibility_date": "2025-08-14",
+	"compatibility_date": "2025-08-14",
 	"main": "src/index.ts",
 	"name": "elin-expandedmoongate-d1gateway",
 	"upload_source_maps": true,
@@ -12,24 +12,34 @@
 	],
 	"observability": {
 		"enabled": true
-  },
-  "routes": [
-    {
-      "pattern": "api.exmoongate.elin-modding.net",
-      "zone_name": "elin-modding.net",
-      "custom_domain": true
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "R2",
-      "bucket_name": "elin-expanded-moongate-r2"
-    }
-  ],
-  "kv_namespaces": [
-    {
-      "id": "6bc1f45b01ee437495324327971cb914",
-      "binding": "KV"
-    }
-  ]
+	},
+	"routes": [
+		{
+			"pattern": "api.exmoongate.elin-modding.net",
+			"zone_name": "elin-modding.net",
+			"custom_domain": true
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "R2",
+			"bucket_name": "elin-expanded-moongate-r2"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"id": "6bc1f45b01ee437495324327971cb914",
+			"binding": "KV"
+		}
+	],
+	"ratelimits": [
+		{
+			"name": "RL",
+			"namespace_id": "1005",
+			"simple": {
+				"limit": 5,
+				"period": 10
+			}
+		}
+	]
 }

@@ -7,12 +7,9 @@ export async function handlePostFilesUpload(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/files/upload" || method !== "POST") return null;
 
   const fileKeyId = url.searchParams.get("fileKeyId")?.trim() ?? "";
 
@@ -22,7 +19,7 @@ export async function handlePostFilesUpload(
     logWarn(requestId, "route.files.upload.bad_request", {
       reason: "invalid file key id",
     });
-    return bad("invalid file key id");
+    return bad("Invalid fileKeyId");
   }
 
   const fileKey = await env.KV.get(`pending-upload:${fileKeyId}`);
@@ -31,7 +28,7 @@ export async function handlePostFilesUpload(
       fileKeyId,
     });
     return bad(
-      "file upload not permitted. Please regenerate fileKeyId via /maps/upload first.",
+      "File upload not permitted. Regenerate fileKeyId via /maps/upload",
       403,
     );
   }
@@ -42,7 +39,7 @@ export async function handlePostFilesUpload(
       fileKey,
       reason: "file conflict",
     });
-    return bad("file already exists", 409);
+    return bad("File already exists", 409);
   }
 
   const contentType =
@@ -53,7 +50,7 @@ export async function handlePostFilesUpload(
       fileKey,
       reason: "missing body",
     });
-    return bad("missing file body");
+    return bad("Missing file body");
   }
 
   let fileBytes: ArrayBuffer;
@@ -66,7 +63,7 @@ export async function handlePostFilesUpload(
         max: MAX_FILE_SIZE_BYTES,
       });
       return bad(
-        `file too large (max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB)`,
+        `File too large. Max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
         413,
       );
     }

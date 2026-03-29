@@ -2,17 +2,15 @@ import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 import { MapMetaBody } from "../../types";
 import { makeRequestId } from "../../utils/request";
+import { fileKeyToToken, sanitizeFileName } from "../../utils/file";
 
 export async function handlePostMapsUpload(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/maps/upload" || method !== "POST") return null;
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";
 
@@ -22,16 +20,16 @@ export async function handlePostMapsUpload(
     logWarn(requestId, "route.maps.upload.bad_request", {
       reason: "invalid map id",
     });
-    return bad("invalid map id");
+    return bad("Invalid map id");
   }
 
   const mapMeta = (await request.json()) as MapMetaBody;
   if (!mapMeta?.author) {
     logWarn(requestId, "route.maps.upload.bad_request", {
       mapId,
-      reason: "author missing",
+      reason: "missing author",
     });
-    return bad("author is required");
+    return bad("Missing author");
   }
 
   if (mapMeta.version == null) {
@@ -39,7 +37,7 @@ export async function handlePostMapsUpload(
       mapId,
       reason: "version missing",
     });
-    return bad("version is required");
+    return bad("Missing version");
   }
 
   const fileName = sanitizeFileName(`${mapMeta.title}/${mapMeta.created_at}.z`);
@@ -65,7 +63,7 @@ export async function handlePostMapsUpload(
 
   const mapExist = await env.DB.prepare(
     `
-    SELECT 1 
+    SELECT 1
     FROM maps
     WHERE file_key = ?
     `,
@@ -73,21 +71,18 @@ export async function handlePostMapsUpload(
     .bind(fileKey)
     .first();
   if (mapExist && head) {
-    logWarn(requestId, "route.maps.upload.conflict", {
-      mapId,
-      fileKey,
-      reason: "file with same key exists",
-    });
-    return bad("meta with the same id and version already exists", 409);
+    return bad("Meta with the same id and version already exists", 409);
   }
+
+  const viewId = await fileKeyToToken(fileKey);
 
   await env.DB.prepare(
     `
     INSERT INTO maps (
-        file_key, id, author, title, language, category, created_at, version, tag, 
-        visit_count, rating_count, file_size, preview_key
+        file_key, id, author, title, language, category, created_at, version, tag,
+        visit_count, rating_count, file_size, preview_key, view_id
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?);
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, ?);
     `,
   )
     .bind(
@@ -102,6 +97,7 @@ export async function handlePostMapsUpload(
       mapMeta.tag ?? null,
       head.size ?? 0,
       null,
+      viewId,
     )
     .run();
 
@@ -109,14 +105,11 @@ export async function handlePostMapsUpload(
     mapId,
     fileName,
     fileKey,
+    viewId,
     author: mapMeta.author,
     version: mapMeta.version,
     fileSize: head.size ?? 0,
   });
 
   return json({ ok: true, mapId }, 201);
-}
-
-function sanitizeFileName(name: string): string {
-  return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
 }

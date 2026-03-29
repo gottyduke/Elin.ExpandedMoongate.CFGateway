@@ -1,24 +1,19 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 import { MapDbRecordWithRating } from "../../types";
+import { buildSharedQuery } from "./buildSharedQuery";
 
 export async function handleGetMapsTop(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/maps/top" || method !== "GET") return null;
 
   const sortParam = url.searchParams.get("sort");
   const countParam = url.searchParams.get("count");
   const pageParam = url.searchParams.get("page");
-  const langParam = url.searchParams.get("lang");
-  const tagParam = url.searchParams.get("noTags");
-  const versionParam = url.searchParams.get("version");
   const userId = url.searchParams.get("userId");
 
   const validSorts = new Set(["created", "rating", "visits"]);
@@ -30,35 +25,26 @@ export async function handleGetMapsTop(
   const count = Math.min(Math.max(Number(countParam) || 30, 10), 300);
   const page = Math.max(Number(pageParam) || 0, 0);
   const offset = count * page;
-  const version = Number(versionParam) || 1000000;
 
   logInfo(requestId, "route.maps.top.hit", {
     sort,
     count,
     page,
     offset,
-    version,
     userId,
   });
 
-  const filters: string[] = ["version <= ?"];
-  const binds: any[] = [version];
+  const langParam = url.searchParams.get("lang");
+  const tagParam = url.searchParams.get("noTags");
+  const versionParam = url.searchParams.get("version");
+  const daysParam = url.searchParams.get("days");
 
-  if (langParam?.trim() && langParam.trim() !== "All") {
-    filters.push("language = ?");
-    binds.push(langParam.trim());
-  }
-
-  if (tagParam?.trim()) {
-    tagParam
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .forEach((tag) => {
-        filters.push("(',' || tag || ',') NOT LIKE ?");
-        binds.push(`%${tag}%`);
-      });
-  }
+  const { filters, binds } = buildSharedQuery(
+    versionParam,
+    langParam,
+    tagParam,
+    daysParam,
+  );
 
   const where = `WHERE ${filters.join(" AND ")}`;
   const sortMap: Record<string, string> = {
@@ -66,25 +52,25 @@ export async function handleGetMapsTop(
     visits: "visit_count",
     created: "created_at",
   };
-  const sortOrder = sortMap[sort] || "created_at";
+  const sortOrder = sortMap[sort] || "m.created_at";
 
   const sql = userId
     ? `
-      SELECT 
+      SELECT
         m.file_key, m.id, m.author, m.title, m.language, m.category, m.created_at,
-        m.version, m.tag, m.rating_count, m.visit_count, m.preview_key, m.file_size,
-        r.map_id as rating_map_id, r.user_id as rating_user_id, r.rated_at, r.visited_at
+        m.version, m.tag, m.rating_count, m.visit_count, m.preview_key, m.file_size, m.view_id,
+        r.map_id AS rating_map_id, r.user_id AS rating_user_id, r.rated_at, r.visited_at
       FROM maps_latest m
-      LEFT JOIN ratings r 
+      LEFT JOIN ratings r
         ON m.id = r.map_id AND r.user_id = ?
       ${where}
       ORDER BY ${sortOrder} DESC
       LIMIT ? OFFSET ?
       `
     : `
-      SELECT 
+      SELECT
         m.file_key, m.id, m.author, m.title, m.language, m.category, m.created_at,
-        m.version, m.tag, m.rating_count, m.visit_count, m.preview_key, m.file_size
+        m.version, m.tag, m.rating_count, m.visit_count, m.preview_key, m.file_size, m.view_id
       FROM maps_latest m
       ${where}
       ORDER BY ${sortOrder} DESC
@@ -119,6 +105,7 @@ export async function handleGetMapsTop(
       visit_count: r.visit_count,
       preview_key: r.preview_key,
       file_size: r.file_size,
+      view_id: r.view_id,
     };
     if (userId && r.rating_map_id) {
       map.user_rating = {

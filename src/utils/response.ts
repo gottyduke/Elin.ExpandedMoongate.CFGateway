@@ -6,7 +6,10 @@ export function json(data: unknown, status = 200) {
 }
 
 export function bad(msg: string, status = 400) {
-  return json({ error: msg }, status);
+  return new Response(msg, {
+    status,
+    headers: { "content-type": "text/plain; charset=utf-8" },
+  });
 }
 
 export function raw(
@@ -17,6 +20,15 @@ export function raw(
   return new Response(body, {
     status,
     headers,
+  });
+}
+
+export function badge(label: string, message: string, color = "blue") {
+  return json({
+    schemaVersion: 1,
+    label,
+    message,
+    color,
   });
 }
 

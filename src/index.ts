@@ -15,6 +15,46 @@ import { handleGetMapsQuery } from "./routes/maps/getQuery";
 import { handleGetMapsOverview } from "./routes/maps/getOverview";
 import { handleGetRatingsQuery } from "./routes/ratings/getQuery";
 import { handleGetMapsHistory } from "./routes/maps/getHistory";
+import { handleGetBadgeMaps } from "./routes/badge/getMaps";
+import { handleGetMapsSearch } from "./routes/maps/getSearch";
+import { RouteContext, RouteHandler } from "./types";
+
+const routes: Record<string, RouteHandler> = {
+  "GET /maps/download": ({ request, env, requestId, bypass }) =>
+    handleGetMapsDownload(request, env, requestId, bypass),
+
+  "GET /maps/history": ({ request, env, requestId, bypass }) =>
+    handleGetMapsHistory(request, env, requestId, bypass),
+
+  "GET /maps/overview": ({ request, env, requestId, bypass }) =>
+    handleGetMapsOverview(request, env, requestId, bypass),
+
+  "GET /maps/query": ({ request, env, requestId, bypass }) =>
+    handleGetMapsQuery(request, env, requestId, bypass),
+
+  "GET /maps/search": ({ request, env, requestId, bypass }) =>
+    handleGetMapsSearch(request, env, requestId, bypass),
+
+  "GET /maps/top": ({ request, env, requestId, bypass }) =>
+    handleGetMapsTop(request, env, requestId, bypass),
+
+  "POST /maps/upload": ({ request, env, requestId, bypass }) =>
+    handlePostMapsUpload(request, env, requestId, bypass),
+
+  "GET /ratings": ({ request, env, requestId, bypass }) =>
+    handleGetRatingsQuery(request, env, requestId, bypass),
+
+  "POST /ratings": ({ request, env, requestId, bypass }) =>
+    handlePostMapsRating(request, env, requestId, bypass),
+
+  "POST /files/upload": ({ request, env, requestId, bypass }) =>
+    handlePostFilesUpload(request, env, requestId, bypass),
+
+  "GET /badge/maps": ({ request, env, requestId, bypass }) =>
+    handleGetBadgeMaps(request, env, requestId, bypass),
+};
+
+const directRoutes = new Set<string>(["GET /badge/maps"]);
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -24,6 +64,17 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method.toUpperCase();
+    const route = `${method} ${path}`;
+
+    let bypass = true;
+
+    if (directRoutes.has(route) && routes[route]) {
+      const handler = routes[route];
+      return (
+        (await handler({ request, env, requestId, bypass })) ??
+        bad("No response", 500)
+      );
+    }
 
     logInfo(requestId, "request.start", {
       method,
@@ -33,80 +84,53 @@ export default {
 
     try {
       const debugKey = request.headers.get("x-debugging-key")?.trim();
-      let bypass = false;
       if (debugKey) {
         const passthrough = await env.KV.get(debugKey);
-        if (passthrough === "passthrough") {
-          logInfo(requestId, "passthrough.bypass", { reason: "debug-key" });
-          bypass = true;
-        } else {
-          logInfo(requestId, "passthrough.failed", { reason: "fail-attempt" });
-        }
+        bypass = passthrough === "passthrough";
       }
 
+      let resp: Response | null = null;
       if (!bypass) {
-        const steamId = request.headers.get("x-request-id");
-        if (!steamId) {
-          logWarn(requestId, "request.end", {
-            method,
-            path,
-            status: 400,
-            durationMs: Date.now() - startedAt,
-          });
-          return withRequestId(bad("Missing Steam ID", 400), requestId);
-        }
-
-        const banResp = await enforceIpBan(request, env, requestId);
-        if (banResp) {
-          logWarn(requestId, "request.end", {
-            method,
-            path,
-            status: banResp.status,
-            durationMs: Date.now() - startedAt,
-          });
-          return withRequestId(banResp, requestId);
-        }
-
-        const cooldownResp = await enforcePostCooldown(request, env, requestId);
-        if (cooldownResp) {
-          logWarn(requestId, "request.end", {
-            method,
-            path,
-            status: cooldownResp.status,
-            durationMs: Date.now() - startedAt,
-          });
-          return withRequestId(cooldownResp, requestId);
-        }
+        resp =
+          (await enforceIpBan(request, env, requestId)) ??
+          (await enforcePostCooldown(request, env, requestId));
       }
 
-      const handlers = [
-        handleGetMapsDownload,
-        handleGetMapsQuery,
-        handleGetMapsTop,
-        handleGetMapsOverview,
-        handleGetMapsHistory,
-        handleGetRatingsQuery,
-        handlePostMapsUpload,
-        handlePostMapsRating,
-        handlePostFilesUpload,
-      ];
-
-      for (const h of handlers) {
-        const resp = await h(request, env, requestId);
-        if (resp) {
-          logInfo(requestId, "request.end", {
-            method,
-            path,
-            status: resp.status,
-            durationMs: Date.now() - startedAt,
-          });
-          return withRequestId(resp, requestId);
-        }
+      if (resp) {
+        logWarn(requestId, "request.blocked", {
+          method,
+          path,
+          status: resp.status,
+          durationMs: Date.now() - startedAt,
+        });
+        return withRequestId(resp, requestId);
       }
 
-      const notFoundResp = bad("Not Found", 404);
-      logWarn(requestId, "route.not_found", { method, path });
-      return withRequestId(notFoundResp, requestId);
+      const ctx: RouteContext = { request, env, requestId, bypass };
+      const handler = routes[route];
+
+      if (handler) {
+        resp = await handler(ctx);
+      }
+
+      if (resp) {
+        logInfo(requestId, "request.end", {
+          method,
+          path,
+          status: resp.status,
+          durationMs: Date.now() - startedAt,
+        });
+        return withRequestId(resp, requestId);
+      }
+
+      resp = json({ error: "Route not found", route }, 404);
+
+      logWarn(requestId, "route.not_found", {
+        method,
+        path,
+      });
+
+      return withRequestId(resp, requestId);
     } catch (e: unknown) {
       logError(requestId, "request.error", {
         method,
@@ -114,10 +138,14 @@ export default {
         durationMs: Date.now() - startedAt,
         error: safeError(e),
       });
-      const resp = json(
-        { error: e instanceof Error ? e.message : "internal error" },
+
+      const resp = bad(
+        `Internal error. Contact mod author if issue persists.\n${
+          e instanceof Error ? e.message : String(e)
+        }`,
         500,
       );
+
       return withRequestId(resp, requestId);
     }
   },

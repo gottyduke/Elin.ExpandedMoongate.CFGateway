@@ -1,88 +1,67 @@
 import { json } from "../../utils/response";
 import { logInfo } from "../../utils/logger";
 import { MapsOverviewBody } from "../../types";
+import { buildSharedQuery } from "./buildSharedQuery";
 
 export async function handleGetMapsOverview(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-
-  if (path !== "/maps/overview" || request.method.toUpperCase() !== "GET") {
-    return null;
-  }
 
   const langParam = url.searchParams.get("lang");
   const tagParam = url.searchParams.get("noTags");
   const versionParam = url.searchParams.get("version");
+  const daysParam = url.searchParams.get("days");
 
-  const version = Number(versionParam) || 1000000;
-
-  logInfo(requestId, "route.maps.overview.hit");
-
-  const filters: string[] = ["version <= ?"];
-  const binds: any[] = [version];
-
-  if (langParam?.trim() && langParam.trim() !== "All") {
-    filters.push("language = ?");
-    binds.push(langParam.trim());
-  }
-
-  if (tagParam?.trim()) {
-    tagParam
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .forEach((tag) => {
-        filters.push("(',' || tag || ',') NOT LIKE ?");
-        binds.push(`%${tag}%`);
-      });
-  }
+  const { filters, binds } = buildSharedQuery(
+    versionParam,
+    langParam,
+    tagParam,
+    daysParam,
+  );
 
   const where = `WHERE ${filters.join(" AND ")}`;
-  const totalsRow = await env.DB.prepare(
-    `
-    SELECT
-        COUNT(*) AS maps_count,
-        SUM(visit_count) AS visits_count,
-        SUM(rating_count) AS ratings_count
-    FROM maps_latest
-    ${where}
-    `,
-  )
-    .bind(...binds)
-    .first<{
-      maps_count: number;
-      visits_count: number;
-      ratings_count: number;
-    }>();
 
-  const last24hRow = await env.DB.prepare(
+  const row = await env.DB.prepare(
     `
     SELECT
-        COUNT(*) AS maps_today,
-        SUM(visit_count) AS visits_today,
-        SUM(rating_count) AS ratings_today
-    FROM maps_latest
-    ${where} AND created_at >= datetime('now', '-1 day')
+      (SELECT COUNT(*) FROM maps_latest m ${where}) AS maps_count,
+
+      (SELECT SUM(m.visit_count) FROM maps_latest m ${where}) AS visits_count,
+
+      (SELECT SUM(m.rating_count) FROM maps_latest m ${where}) AS ratings_count,
+
+      (SELECT COUNT(*)
+      FROM maps_latest m
+      ${where} AND m.created_at >= datetime('now', '-1 day')
+      ) AS maps_today,
+
+      (SELECT COUNT(*)
+      FROM ratings r
+      JOIN maps_latest m ON m.id = r.map_id
+      ${where} AND r.visited_at >= datetime('now', '-1 day')
+      ) AS visits_today,
+
+      (SELECT COUNT(*)
+      FROM ratings r
+      JOIN maps_latest m ON m.id = r.map_id
+      ${where} AND r.rated_at >= datetime('now', '-1 day')
+      ) AS ratings_today
     `,
   )
-    .bind(...binds)
-    .first<{
-      maps_today: number;
-      visits_today: number;
-      ratings_today: number;
-    }>();
+    .bind(...[...binds, ...binds, ...binds, ...binds, ...binds, ...binds])
+    .first<MapsOverviewBody>();
 
   const body: MapsOverviewBody = {
-    maps_count: totalsRow?.maps_count ?? 0,
-    visits_count: totalsRow?.visits_count ?? 0,
-    ratings_count: totalsRow?.ratings_count ?? 0,
-    maps_today: last24hRow?.maps_today ?? 0,
-    visits_today: last24hRow?.visits_today ?? 0,
-    ratings_today: last24hRow?.ratings_today ?? 0,
+    maps_count: row?.maps_count ?? 0,
+    visits_count: row?.visits_count ?? 0,
+    ratings_count: row?.ratings_count ?? 0,
+    maps_today: row?.maps_today ?? 0,
+    visits_today: row?.visits_today ?? 0,
+    ratings_today: row?.ratings_today ?? 0,
   };
 
   logInfo(requestId, "route.maps.overview.total", { result: body });

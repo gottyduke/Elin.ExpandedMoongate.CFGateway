@@ -1,0 +1,1026 @@
+openapi: 3.0.0
+info:
+  title: ExpandedMoongate Maps API
+  description: API for managing maps, ratings, and file uploads for the ExpandedMoongate platform
+  version: 1.0.0
+
+servers:
+  - url: https://api.expandedmoongate.local
+    description: Production server
+
+paths:
+  /maps/download:
+    get:
+      summary: Download a map file
+      description: Downloads the binary map file for a specified map ID
+      tags:
+        - Maps
+      parameters:
+        - name: mapId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The unique identifier for the map
+      responses:
+        '200':
+          description: Successfully returned map file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            x-request-id:
+              schema:
+                type: string
+              description: Unique request ID for tracking
+            content-disposition:
+              schema:
+                type: string
+              description: File attachment information
+        '400':
+          description: Invalid map ID provided
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Invalid map id"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '404':
+          description: Map or file not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Map not found"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "IP rate limited"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /maps/query:
+    get:
+      summary: Query map metadata
+      description: Get metadata for a specific map by ID or view ID
+      tags:
+        - Maps
+      parameters:
+        - name: mapId
+          in: query
+          schema:
+            type: string
+          description: The map ID (alternative to viewId)
+        - name: viewId
+          in: query
+          schema:
+            type: string
+          description: The view ID (alternative to mapId)
+      responses:
+        '200':
+          description: Map metadata retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapDbRecord'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '400':
+          description: Invalid parameters - must provide either mapId or viewId
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Invalid map id"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '404':
+          description: Map not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  found:
+                    type: boolean
+                    example: false
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "IP rate limited"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /maps/search:
+    get:
+      summary: Search for maps
+      description: Search maps by title or author, with optional view ID lookup
+      tags:
+        - Maps
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: Search query (title, author, or 12-character view ID)
+        - name: userId
+          in: query
+          schema:
+            type: string
+          description: Optional user ID to include user ratings in results
+        - name: version
+          in: query
+          schema:
+            type: integer
+          description: Maximum map version to include
+      responses:
+        '200':
+          description: Search results retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MapDbRecordWithRating'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '429':
+          description: Search rate limit exceeded
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Frequent search"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Database error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Database error"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /maps/top:
+    get:
+      summary: Get top maps
+      description: Retrieve top-ranked maps with optional filtering and sorting
+      tags:
+        - Maps
+      parameters:
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [created, rating, visits]
+            default: created
+          description: Sort order for results
+        - name: count
+          in: query
+          schema:
+            type: integer
+            minimum: 10
+            maximum: 300
+            default: 30
+          description: Number of results to return (10-300)
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Page number for pagination
+        - name: userId
+          in: query
+          schema:
+            type: string
+          description: Optional user ID to include user ratings
+        - name: lang
+          in: query
+          schema:
+            type: string
+          description: Filter by language
+        - name: noTags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tags to exclude
+        - name: version
+          in: query
+          schema:
+            type: integer
+          description: Maximum map version to include
+        - name: days
+          in: query
+          schema:
+            type: integer
+          description: Limit to maps created within the last N days
+      responses:
+        '200':
+          description: Top maps retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MapDbRecordWithRating'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Database error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Database error"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /maps/history:
+    get:
+      summary: Get user's map history
+      description: Retrieve maps visited by a specific user, ordered by visit date
+      tags:
+        - Maps
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The user ID to get history for
+      responses:
+        '200':
+          description: User history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 100
+                items:
+                  $ref: '#/components/schemas/MapDbRecordWithRating'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Database error
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Database error"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /maps/overview:
+    get:
+      summary: Get maps overview statistics
+      description: Retrieve overall statistics about maps, visits, and ratings
+      tags:
+        - Maps
+      parameters:
+        - name: lang
+          in: query
+          schema:
+            type: string
+          description: Filter by language
+        - name: noTags
+          in: query
+          schema:
+            type: string
+          description: Comma-separated tags to exclude
+        - name: version
+          in: query
+          schema:
+            type: integer
+          description: Maximum map version to include
+        - name: days
+          in: query
+          schema:
+            type: integer
+          description: Limit statistics to maps created within the last N days
+      responses:
+        '200':
+          description: Overview statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapsOverviewBody'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /maps/upload:
+    post:
+      summary: Register map metadata
+      description: Register new map metadata. The file must be uploaded separately via /files/upload
+      tags:
+        - Maps
+      parameters:
+        - name: mapId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The unique map ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapMetaBody'
+      responses:
+        '201':
+          description: Map metadata registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  mapId:
+                    type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '400':
+          description: Missing required fields (mapId, author, or version)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Invalid map id"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '409':
+          description: Map with same ID and version already exists
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Meta with the same id and version already exists"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '424':
+          description: File not yet uploaded - must call /files/upload first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fileKeyId:
+                    type: string
+                    description: Upload token for use with /files/upload
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '429':
+          description: Too many POST requests from this IP
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Too many POST requests. Try again later"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "IP rate limited"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /ratings:
+    get:
+      summary: Get rating for a map
+      description: Retrieve the rating for a specific map by a specific user
+      tags:
+        - Ratings
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The user ID
+        - name: mapId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The map ID
+      responses:
+        '200':
+          description: Rating retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RatingDbRecord'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '400':
+          description: Missing required parameters
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Map id or user id missing"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '404':
+          description: Map not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Map not found"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+    post:
+      summary: Create or update a rating
+      description: Create a new rating or update an existing one for a map
+      tags:
+        - Ratings
+      parameters:
+        - name: mapId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The map ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RatingBody'
+      responses:
+        '200':
+          description: Rating created or updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '400':
+          description: Invalid request (map ID mismatch or missing fields)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Map id in url and body must match"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '404':
+          description: Map not found
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Map not found"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '429':
+          description: Too many POST requests from this IP
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Too many POST requests. Try again later"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "IP rate limited"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /files/upload:
+    post:
+      summary: Upload map file
+      description: Upload the binary map file. Must provide a fileKeyId obtained from /maps/upload
+      tags:
+        - Files
+      parameters:
+        - name: fileKeyId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Upload token obtained from /maps/upload response
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        '201':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                    example: true
+                  fileKey:
+                    type: string
+                    description: The storage key for the uploaded file
+                  size:
+                    type: integer
+                    description: File size in bytes
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '400':
+          description: Missing or invalid fileKeyId
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Invalid fileKeyId"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '403':
+          description: File upload not permitted or IP is banned
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "File upload not permitted. Regenerate fileKeyId via /maps/upload"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '409':
+          description: File already exists
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "File already exists"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '413':
+          description: File too large (max 100MB)
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "File too large. Max 100 MB"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '429':
+          description: Too many POST requests from this IP
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Too many POST requests. Try again later"
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+  /badge/maps:
+    get:
+      summary: Get maps count badge
+      description: Get a badge showing the total count of maps in SVG format
+      tags:
+        - Badge
+      responses:
+        '200':
+          description: Badge data retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BadgeResponse'
+          headers:
+            x-request-id:
+              schema:
+                type: string
+        '500':
+          description: Internal server error
+          content:
+            text/plain:
+              schema:
+                type: string
+          headers:
+            x-request-id:
+              schema:
+                type: string
+
+components:
+  schemas:
+    MapMetaBody:
+      type: object
+      required:
+        - id
+        - author
+        - title
+        - created_at
+        - version
+      properties:
+        id:
+          type: string
+          description: Unique map identifier
+        author:
+          type: string
+          description: Map author name
+        title:
+          type: string
+          description: Map title
+        language:
+          type: string
+          nullable: true
+          description: Map language/locale
+        category:
+          type: string
+          nullable: true
+          description: Map category
+        created_at:
+          type: string
+          description: Map creation timestamp
+        version:
+          type: integer
+          description: Map version number
+        tag:
+          type: string
+          nullable: true
+          description: Optional map tag
+
+    MapDbRecord:
+      allOf:
+        - $ref: '#/components/schemas/MapMetaBody'
+        - type: object
+          required:
+            - file_key
+            - visit_count
+            - rating_count
+            - file_size
+          properties:
+            file_key:
+              type: string
+              description: Storage key for the map file
+            visit_count:
+              type: integer
+              description: Total number of times this map has been visited
+            rating_count:
+              type: integer
+              description: Total number of ratings this map has received
+            preview_key:
+              type: string
+              nullable: true
+              description: Storage key for the map preview image
+            file_size:
+              type: integer
+              description: Map file size in bytes
+            view_id:
+              type: string
+              nullable: true
+              description: Unique view identifier for direct access
+
+    MapDbRecordWithRating:
+      allOf:
+        - $ref: '#/components/schemas/MapDbRecord'
+        - type: object
+          properties:
+            user_rating:
+              $ref: '#/components/schemas/RatingDbRecord'
+              nullable: true
+              description: User's rating for this map if userId was provided
+
+    RatingBody:
+      type: object
+      required:
+        - map_id
+        - user_id
+      properties:
+        map_id:
+          type: string
+          description: The map ID
+        user_id:
+          type: string
+          description: The user ID
+        rated_at:
+          type: string
+          nullable: true
+          description: ISO 8601 timestamp when the map was rated, null for unrating
+
+    RatingDbRecord:
+      allOf:
+        - $ref: '#/components/schemas/RatingBody'
+        - type: object
+          required:
+            - visited_at
+          properties:
+            visited_at:
+              type: string
+              description: ISO 8601 timestamp when the map was last visited
+
+    MapsOverviewBody:
+      type: object
+      properties:
+        maps_count:
+          type: integer
+          description: Total number of maps
+        visits_count:
+          type: integer
+          description: Total number of map visits
+        ratings_count:
+          type: integer
+          description: Total number of ratings
+        maps_today:
+          type: integer
+          description: Number of maps created in the last 24 hours
+        visits_today:
+          type: integer
+          description: Number of map visits in the last 24 hours
+        ratings_today:
+          type: integer
+          description: Number of ratings in the last 24 hours
+
+    BadgeResponse:
+      type: object
+      properties:
+        schemaVersion:
+          type: integer
+          example: 1
+        label:
+          type: string
+          example: "maps"
+        message:
+          type: string
+          example: "42"
+        color:
+          type: string
+          example: "blue"
+
+  responses:
+    UnauthorizedError:
+      description: Authentication information is missing or invalid
+      headers:
+        x-request-id:
+          schema:
+            type: string
+
+    NotFoundError:
+      description: The requested resource was not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Route not found"
+      headers:
+        x-request-id:
+          schema:
+            type: string
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        text/plain:
+          schema:
+            type: string
+      headers:
+        x-request-id:
+          schema:
+            type: string
+
+    TooManyRequests:
+      description: Too many requests - rate limit exceeded
+      content:
+        text/plain:
+          schema:
+            type: string
+      headers:
+        x-request-id:
+          schema:
+            type: string
+
+tags:
+  - name: Maps
+    description: Operations related to map management
+  - name: Ratings
+    description: Operations related to map ratings
+  - name: Files
+    description: Operations related to file uploads
+  - name: Badge
+    description: Badge information endpoints

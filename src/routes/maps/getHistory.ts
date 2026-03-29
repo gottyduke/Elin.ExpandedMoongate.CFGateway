@@ -6,12 +6,9 @@ export async function handleGetMapsHistory(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/maps/history" || method !== "GET") return null;
 
   const userId = url.searchParams.get("userId");
 
@@ -21,17 +18,18 @@ export async function handleGetMapsHistory(
 
   const result = await env.DB.prepare(
     `
-    SELECT 
+    SELECT
         m.file_key, m.id, m.author, m.title, m.language, m.category, m.created_at,
-        m.version, m.tag, m.rating_count, m.visit_count, m.preview_key, m.file_size,
-        r.map_id as rating_map_id, r.user_id as rating_user_id, r.rated_at, r.visited_at
+        m.version, m.tag, m.rating_count, m.visit_count, m.preview_key, m.file_size, m.view_id,
+        r.map_id AS rating_map_id, r.user_id AS rating_user_id, r.rated_at, r.visited_at
     FROM maps_latest m
-    INNER JOIN ratings r 
+    INNER JOIN ratings r
         ON m.id = r.map_id
     WHERE r.user_id = ?
         AND r.visited_at IS NOT NULL
     ORDER BY r.visited_at DESC
-    `
+    LIMIT 100
+    `,
   )
     .bind(userId)
     .all<any>();
@@ -56,6 +54,7 @@ export async function handleGetMapsHistory(
       visit_count: r.visit_count,
       preview_key: r.preview_key,
       file_size: r.file_size,
+      view_id: r.view_id,
     };
     if (userId && r.rating_map_id) {
       map.user_rating = {

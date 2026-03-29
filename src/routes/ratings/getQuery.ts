@@ -6,12 +6,9 @@ export async function handleGetRatingsQuery(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/ratings" || method !== "GET") return null;
 
   const userId = url.searchParams.get("userId")?.trim() ?? "";
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";
@@ -25,7 +22,7 @@ export async function handleGetRatingsQuery(
     logWarn(requestId, "route.ratings.get.bad_request", {
       reason: "map id or user id missing",
     });
-    return bad("map id or user id missing");
+    return bad("Map id or user id missing");
   }
 
   const mapExists = await env.DB.prepare(
@@ -40,7 +37,7 @@ export async function handleGetRatingsQuery(
 
   if (!mapExists) {
     logWarn(requestId, "route.ratings.get.not_found", { mapId });
-    return bad("map not found", 404);
+    return bad("Map not found", 404);
   }
 
   const rating = await env.DB.prepare(

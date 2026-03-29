@@ -6,33 +6,35 @@ export async function handleGetMapsQuery(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/maps/query" || method !== "GET") return null;
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";
+  const viewId = url.searchParams.get("viewId")?.trim() ?? "";
 
-  logInfo(requestId, "route.maps.query.hit", { mapId });
+  logInfo(requestId, "route.maps.query.hit", { mapId, viewId });
 
-  if (!mapId) {
+  if (!mapId && !viewId) {
     logWarn(requestId, "route.maps.query.bad_request", {
       reason: "invalid map id",
     });
-    return bad("invalid map id");
+    return bad("Invalid map id");
   }
+
+  const db = viewId ? "maps" : "maps_latest";
+  const column = viewId ? "view_id" : "id";
+  const id = viewId ?? mapId;
 
   const map = await env.DB.prepare(
     `
-    SELECT file_key, id, author, title, language, category, created_at, 
-        version, tag, rating_count, visit_count, preview_key, file_size
-    FROM maps_latest
-    WHERE id = ?
+    SELECT file_key, id, author, title, language, category, created_at,
+        version, tag, rating_count, visit_count, preview_key, file_size, view_id
+    FROM ${db}
+    WHERE ${column} = ?
     `,
   )
-    .bind(mapId)
+    .bind(id)
     .first<MapDbRecord>();
 
   if (!map) {
@@ -56,5 +58,5 @@ export async function handleGetMapsQuery(
     version: map.version,
   });
 
-  return json(map, 200);
+  return json(map);
 }

@@ -6,12 +6,9 @@ export async function handlePostMapsRating(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/ratings" || method !== "POST") return null;
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";
   const body = (await request.json()) as RatingBody;
@@ -22,7 +19,7 @@ export async function handlePostMapsRating(
       urlMapId: mapId,
       bodyMapId: body.map_id,
     });
-    return bad("map id in url and body must match");
+    return bad("Map id in url and body must match");
   }
 
   const liked = body.rated_at !== null;
@@ -45,7 +42,7 @@ export async function handlePostMapsRating(
     .first();
   if (!mapExists) {
     logWarn(requestId, "route.ratings.post.not_found", { mapId });
-    return bad("map not found", 404);
+    return bad("Map not found", 404);
   }
 
   const now = new Date().toISOString().slice(0, 19).replace("T", " ");

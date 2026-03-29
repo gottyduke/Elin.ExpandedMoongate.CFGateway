@@ -1,16 +1,14 @@
 import { bad, raw } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
+import { sanitizeFileName } from "../../utils/file";
 
 export async function handleGetMapsDownload(
   request: Request,
   env: Env,
   requestId: string,
+  bypass = false,
 ): Promise<Response | null> {
   const url = new URL(request.url);
-  const path = url.pathname;
-  const method = request.method.toUpperCase();
-
-  if (path !== "/maps/download" || method !== "GET") return null;
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";
 
@@ -19,13 +17,13 @@ export async function handleGetMapsDownload(
     logWarn(requestId, "route.maps.download.bad_request", {
       reason: "invalid map id",
     });
-    return bad("invalid map id");
+    return bad("Invalid map id");
   }
 
   const map = await env.DB.prepare(
     `
-    SELECT file_key, id 
-    FROM maps_latest 
+    SELECT file_key, id
+    FROM maps_latest
     WHERE id = ?
     `,
   )
@@ -34,7 +32,7 @@ export async function handleGetMapsDownload(
 
   if (!map) {
     logWarn(requestId, "route.maps.download.not_found", { mapId });
-    return bad("map not found", 404);
+    return bad("Map not found", 404);
   }
 
   const obj = await env.R2.get(map.file_key);
@@ -43,7 +41,7 @@ export async function handleGetMapsDownload(
       mapId,
       fileKey: map.file_key,
     });
-    return bad("file not found", 404);
+    return bad("File not found", 404);
   }
 
   await env.DB.prepare(
@@ -74,7 +72,15 @@ export async function handleGetMapsDownload(
     "content-type",
     obj.httpMetadata?.contentType || "application/octet-stream",
   );
-  headers.set("content-disposition", `attachment; filename="${mapId}.z"`);
+
+  const safe = sanitizeFileName(mapId);
+  const fallback = safe.replace(/[^\x20-\x7E]/g, "_") || "download.z";
+  const encoded = encodeURIComponent(safe);
+
+  headers.set(
+    "content-disposition",
+    `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
+  );
 
   logInfo(requestId, "route.maps.download.ok", {
     mapId,

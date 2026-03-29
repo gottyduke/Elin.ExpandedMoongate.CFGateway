@@ -25,6 +25,7 @@ export interface MapDbRecord extends MapMetaBody {
   rating_count: number;
   preview_key?: string;
   file_size: number;
+  view_id?: string;
 }
 
 export interface MapDbRecordWithRating extends MapDbRecord {
@@ -39,3 +40,12 @@ export interface MapsOverviewBody {
   visits_today: number;
   ratings_today: number;
 }
+
+export type RouteContext = {
+  request: Request;
+  env: Env;
+  requestId: string;
+  bypass: boolean;
+};
+
+export type RouteHandler = (ctx: RouteContext) => Promise<Response | null>;
