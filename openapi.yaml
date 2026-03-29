@@ -1,18 +1,18 @@
 openapi: 3.0.0
 info:
-  title: ExpandedMoongate Maps API
-  description: API for managing maps, ratings, and file uploads for the ExpandedMoongate platform
+  title: Expanded Moongate Server API
+  description: API for managing maps, ratings, and file uploads for the Expanded Moongate project
   version: 1.0.0
 
 servers:
-  - url: https://api.expandedmoongate.local
-    description: Production server
+  - url: https://api.exmoongate.elin-modding.net
+    description: Outbound endpoint for Expanded Moongate project
 
 paths:
   /maps/download:
     get:
       summary: Download a map file
-      description: Downloads the binary map file for a specified map ID
+      description: Downloads the .z file for a specified map ID
       tags:
         - Maps
       parameters:
@@ -94,12 +94,12 @@ paths:
           in: query
           schema:
             type: string
-          description: The map ID (alternative to viewId)
+          description: The map ID, this points to the latest snapshot
         - name: viewId
           in: query
           schema:
             type: string
-          description: The view ID (alternative to mapId)
+          description: The view ID (12-character unique identifier for direct version access)
       responses:
         '200':
           description: Map metadata retrieved successfully
@@ -367,7 +367,7 @@ paths:
   /maps/overview:
     get:
       summary: Get maps overview statistics
-      description: Retrieve overall statistics about maps, visits, and ratings
+      description: Retrieve overall statistics about maps, visits, and ratings for given filters
       tags:
         - Maps
       parameters:
@@ -799,7 +799,7 @@ paths:
   /badge/maps:
     get:
       summary: Get maps count badge
-      description: Get a badge showing the total count of maps in SVG format
+      description: Get a badge.io schema with the current total count of unique maps
       tags:
         - Badge
       responses:
