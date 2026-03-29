@@ -1,6 +1,6 @@
 import { getClientIp, makeRequestId } from "./utils/request";
 import { safeError } from "./utils/error";
-import { withRequestId, json, bad } from "./utils/response";
+import { withRequestId, json, bad, handleOptions } from "./utils/response";
 import { logError, logInfo, logWarn } from "./utils/logger";
 
 import { enforcePostCooldown } from "./middleware/cooldown";
@@ -65,6 +65,10 @@ export default {
     const path = url.pathname;
     const method = request.method.toUpperCase();
     const route = `${method} ${path}`;
+
+    if (request.method === "OPTIONS") {
+      return handleOptions();
+    }
 
     let bypass = true;
 
