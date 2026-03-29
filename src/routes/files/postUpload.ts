@@ -62,12 +62,11 @@ export async function handlePostFilesUpload(
         fileKey,
         max: MAX_FILE_SIZE_BYTES,
       });
-      return bad(
-        `File too large. Max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
-        413,
-      );
     }
-    throw err;
+    return bad(
+      `File too large. Max ${MAX_FILE_SIZE_BYTES / (1024 * 1024)} MB`,
+      413,
+    );
   }
 
   await env.R2.put(fileKey, fileBytes, { httpMetadata: { contentType } });

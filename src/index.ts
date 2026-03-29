@@ -18,6 +18,10 @@ import { handleGetMapsHistory } from "./routes/maps/getHistory";
 import { handleGetBadgeMaps } from "./routes/badge/getMaps";
 import { handleGetMapsSearch } from "./routes/maps/getSearch";
 import { RouteContext, RouteHandler } from "./types";
+import { handleGetPreviewDownload } from "./routes/previews/getDownload";
+import { handlePostPreviewUpload } from "./routes/previews/postUpload";
+import { sanitizeFileName } from "./utils/file";
+import { handleGetModerationUnpreparedList } from "./routes/moderation/getUnpreparedList";
 
 const routes: Record<string, RouteHandler> = {
   "GET /maps/download": ({ request, env, requestId, bypass }) =>
@@ -50,8 +54,17 @@ const routes: Record<string, RouteHandler> = {
   "POST /files/upload": ({ request, env, requestId, bypass }) =>
     handlePostFilesUpload(request, env, requestId, bypass),
 
+  "POST /previews/upload": ({ request, env, requestId, bypass }) =>
+    handlePostPreviewUpload(request, env, requestId, bypass),
+
+  "GET /previews/download": ({ request, env, requestId, bypass }) =>
+    handleGetPreviewDownload(request, env, requestId, bypass),
+
   "GET /badge/maps": ({ request, env, requestId, bypass }) =>
     handleGetBadgeMaps(request, env, requestId, bypass),
+
+  "GET /moderation/unprepared": ({ request, env, requestId, bypass }) =>
+    handleGetModerationUnpreparedList(request, env, requestId, bypass),
 };
 
 const directRoutes = new Set<string>(["GET /badge/maps"]);
@@ -70,12 +83,10 @@ export default {
       return handleOptions();
     }
 
-    let bypass = true;
-
     if (directRoutes.has(route) && routes[route]) {
       const handler = routes[route];
       return (
-        (await handler({ request, env, requestId, bypass })) ??
+        (await handler({ request, env, requestId, bypass: true })) ??
         bad("No response", 500)
       );
     }
@@ -87,6 +98,7 @@ export default {
     });
 
     try {
+      let bypass = false;
       const debugKey = request.headers.get("x-debugging-key")?.trim();
       if (debugKey) {
         const passthrough = await env.KV.get(debugKey);

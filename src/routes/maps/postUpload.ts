@@ -74,6 +74,9 @@ export async function handlePostMapsUpload(
     return bad("Meta with the same id and version already exists", 409);
   }
 
+  const previewFileName = sanitizeFileName(`${mapMeta.title}.jpg`);
+  const previewFileKey = `previews/${sanitizeFileName(mapMeta.author)}/${previewFileName}`;
+
   const viewId = await fileKeyToToken(fileKey);
 
   await env.DB.prepare(
@@ -96,7 +99,7 @@ export async function handlePostMapsUpload(
       mapMeta.version,
       mapMeta.tag ?? null,
       head.size ?? 0,
-      null,
+      previewFileKey,
       viewId,
     )
     .run();

@@ -14,6 +14,7 @@ export async function handleGetMapsDownload(
   const viewId = url.searchParams.get("viewId")?.trim() ?? "";
 
   logInfo(requestId, "route.maps.download.hit", { mapId, viewId });
+
   if (!mapId && !viewId) {
     logWarn(requestId, "route.maps.download.bad_request", {
       reason: "invalid map id or view id",
@@ -62,23 +63,10 @@ export async function handleGetMapsDownload(
     `
     UPDATE maps
     SET visit_count = visit_count + 1
-    WHERE id = ?
-        AND created_at = (SELECT MAX(created_at) FROM maps WHERE id = ?);
+    WHERE file_key = ?
     `,
   )
-    .bind(mapId, mapId)
-    .run();
-
-  await env.DB.prepare(
-    `
-    UPDATE maps_latest
-    SET visit_count = (
-        SELECT SUM(visit_count) FROM maps WHERE id = ?
-    )
-    WHERE id = ?;
-    `,
-  )
-    .bind(mapId, mapId)
+    .bind(map.file_key)
     .run();
 
   const headers = new Headers();
