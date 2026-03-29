@@ -11,27 +11,41 @@ export async function handleGetMapsDownload(
   const url = new URL(request.url);
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";
+  const viewId = url.searchParams.get("viewId")?.trim() ?? "";
 
-  logInfo(requestId, "route.maps.download.hit", { mapId });
-  if (!mapId) {
+  logInfo(requestId, "route.maps.download.hit", { mapId, viewId });
+  if (!mapId && !viewId) {
     logWarn(requestId, "route.maps.download.bad_request", {
-      reason: "invalid map id",
+      reason: "invalid map id or view id",
     });
-    return bad("Invalid map id");
+    return bad("Invalid map id or view id");
   }
 
-  const map = await env.DB.prepare(
-    `
-    SELECT file_key, id
-    FROM maps_latest
-    WHERE id = ?
-    `,
-  )
-    .bind(mapId)
-    .first<{ file_key: string; id: string }>();
+  let map: { file_key: string } | null = null;
+  if (viewId.length == 12) {
+    map = await env.DB.prepare(
+      `
+      SELECT file_key
+      FROM maps
+      WHERE view_id = ?
+      `,
+    )
+      .bind(viewId)
+      .first<{ file_key: string }>();
+  } else {
+    map = await env.DB.prepare(
+      `
+      SELECT file_key
+      FROM maps_latest
+      WHERE id = ?
+      `,
+    )
+      .bind(mapId)
+      .first<{ file_key: string }>();
+  }
 
   if (!map) {
-    logWarn(requestId, "route.maps.download.not_found", { mapId });
+    logWarn(requestId, "route.maps.download.not_found", { mapId, viewId });
     return bad("Map not found", 404);
   }
 

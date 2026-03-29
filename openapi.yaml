@@ -12,16 +12,22 @@ paths:
   /maps/download:
     get:
       summary: Download a map file
-      description: Downloads the .z file for a specified map ID
+      description: Downloads the .z file for a specified map. Provide either mapId or viewId (at least one is required)
       tags:
         - Maps
       parameters:
         - name: mapId
           in: query
-          required: true
+          required: false
           schema:
             type: string
-          description: The unique identifier for the map
+          description: The unique identifier for the map (points to the latest version)
+        - name: viewId
+          in: query
+          required: false
+          schema:
+            type: string
+          description: The view ID (12-character unique identifier for direct version access)
       responses:
         '200':
           description: Successfully returned map file
