@@ -1,15 +1,16 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { MapDbRecordWithRating } from "../../types";
+import type { MapDbRecordWithRating, RouteContext } from "../../types";
 import { buildSharedQuery } from "./buildSharedQuery";
 import { getClientIp } from "../../utils/request";
 
-export async function handleGetMapsSearch(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetMapsSearch({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   if (!bypass) {
@@ -56,9 +57,7 @@ export async function handleGetMapsSearch(
         LIMIT 1
         `;
 
-    const finalBinds = userId
-      ? [userId, ...binds, query]
-      : [...binds, query];
+    const finalBinds = userId ? [userId, ...binds, query] : [...binds, query];
 
     const result = await env.DB.prepare(sql)
       .bind(...finalBinds)

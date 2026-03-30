@@ -17,60 +17,49 @@ import { handleGetRatingsQuery } from "./routes/ratings/getQuery";
 import { handleGetMapsHistory } from "./routes/maps/getHistory";
 import { handleGetBadgeMaps } from "./routes/badge/getMaps";
 import { handleGetMapsSearch } from "./routes/maps/getSearch";
-import { RouteContext, RouteHandler } from "./types";
+import type { RouteContext, RouteHandler } from "./types";
 import { handleGetPreviewDownload } from "./routes/previews/getDownload";
 import { handlePostPreviewUpload } from "./routes/previews/postUpload";
-import { sanitizeFileName } from "./utils/file";
 import { handleGetModerationUnpreparedList } from "./routes/moderation/getUnpreparedList";
 
 const routes: Record<string, RouteHandler> = {
-  "GET /maps/download": ({ request, env, requestId, bypass }) =>
-    handleGetMapsDownload(request, env, requestId, bypass),
+  "GET /maps/download": (ctx) => handleGetMapsDownload(ctx),
 
-  "GET /maps/history": ({ request, env, requestId, bypass }) =>
-    handleGetMapsHistory(request, env, requestId, bypass),
+  "GET /maps/history": (ctx) => handleGetMapsHistory(ctx),
 
-  "GET /maps/overview": ({ request, env, requestId, bypass }) =>
-    handleGetMapsOverview(request, env, requestId, bypass),
+  "GET /maps/overview": (ctx) => handleGetMapsOverview(ctx),
 
-  "GET /maps/query": ({ request, env, requestId, bypass }) =>
-    handleGetMapsQuery(request, env, requestId, bypass),
+  "GET /maps/query": (ctx) => handleGetMapsQuery(ctx),
 
-  "GET /maps/search": ({ request, env, requestId, bypass }) =>
-    handleGetMapsSearch(request, env, requestId, bypass),
+  "GET /maps/search": (ctx) => handleGetMapsSearch(ctx),
 
-  "GET /maps/top": ({ request, env, requestId, bypass }) =>
-    handleGetMapsTop(request, env, requestId, bypass),
+  "GET /maps/top": (ctx) => handleGetMapsTop(ctx),
 
-  "POST /maps/upload": ({ request, env, requestId, bypass }) =>
-    handlePostMapsUpload(request, env, requestId, bypass),
+  "POST /maps/upload": (ctx) => handlePostMapsUpload(ctx),
 
-  "GET /ratings": ({ request, env, requestId, bypass }) =>
-    handleGetRatingsQuery(request, env, requestId, bypass),
+  "GET /ratings": (ctx) => handleGetRatingsQuery(ctx),
 
-  "POST /ratings": ({ request, env, requestId, bypass }) =>
-    handlePostMapsRating(request, env, requestId, bypass),
+  "POST /ratings": (ctx) => handlePostMapsRating(ctx),
 
-  "POST /files/upload": ({ request, env, requestId, bypass }) =>
-    handlePostFilesUpload(request, env, requestId, bypass),
+  "POST /files/upload": (ctx) => handlePostFilesUpload(ctx),
 
-  "POST /previews/upload": ({ request, env, requestId, bypass }) =>
-    handlePostPreviewUpload(request, env, requestId, bypass),
+  "POST /previews/upload": (ctx) => handlePostPreviewUpload(ctx),
 
-  "GET /previews/download": ({ request, env, requestId, bypass }) =>
-    handleGetPreviewDownload(request, env, requestId, bypass),
+  "GET /previews/download": (ctx) => handleGetPreviewDownload(ctx),
 
-  "GET /badge/maps": ({ request, env, requestId, bypass }) =>
-    handleGetBadgeMaps(request, env, requestId, bypass),
+  "GET /badge/maps": (ctx) => handleGetBadgeMaps(ctx),
 
-  "GET /moderation/unprepared": ({ request, env, requestId, bypass }) =>
-    handleGetModerationUnpreparedList(request, env, requestId, bypass),
+  "GET /moderation/unprepared": (ctx) => handleGetModerationUnpreparedList(ctx),
 };
 
 const directRoutes = new Set<string>(["GET /badge/maps"]);
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
     const startedAt = Date.now();
     const requestId = makeRequestId();
 
@@ -86,7 +75,7 @@ export default {
     if (directRoutes.has(route) && routes[route]) {
       const handler = routes[route];
       return (
-        (await handler({ request, env, requestId, bypass: true })) ??
+        (await handler({ request, env, requestId, bypass: true, ctx })) ??
         bad("No response", 500)
       );
     }
@@ -122,11 +111,11 @@ export default {
         return withRequestId(resp, requestId);
       }
 
-      const ctx: RouteContext = { request, env, requestId, bypass };
+      const routeCtx: RouteContext = { request, env, requestId, bypass, ctx };
       const handler = routes[route];
 
       if (handler) {
-        resp = await handler(ctx);
+        resp = await handler(routeCtx);
       }
 
       if (resp) {

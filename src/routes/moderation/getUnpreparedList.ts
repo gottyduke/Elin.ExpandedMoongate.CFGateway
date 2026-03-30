@@ -1,11 +1,13 @@
 import { bad, json } from "../../utils/response";
+import type { RouteContext } from "../../types";
 
-export async function handleGetModerationUnpreparedList(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetModerationUnpreparedList({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   if (!bypass) {
     return bad("Unauthorized", 401);
   }

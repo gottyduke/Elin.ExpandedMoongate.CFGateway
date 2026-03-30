@@ -1,11 +1,13 @@
 import { badge } from "../../utils/response";
+import type { RouteContext } from "../../types";
 
-export async function handleGetBadgeMaps(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetBadgeMaps({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const result = await env.DB.prepare(
     `
     SELECT

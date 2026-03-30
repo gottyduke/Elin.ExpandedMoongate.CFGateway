@@ -1,13 +1,14 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { RatingDbRecord } from "../../types";
+import type { RatingDbRecord, RouteContext } from "../../types";
 
-export async function handleGetRatingsQuery(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetRatingsQuery({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const userId = url.searchParams.get("userId")?.trim() ?? "";

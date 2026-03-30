@@ -1,13 +1,14 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { MapDbRecord } from "../../types";
+import type { MapDbRecord, RouteContext } from "../../types";
 
-export async function handleGetMapsQuery(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetMapsQuery({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";

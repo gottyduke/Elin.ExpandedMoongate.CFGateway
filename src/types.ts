@@ -46,6 +46,7 @@ export type RouteContext = {
   env: Env;
   requestId: string;
   bypass: boolean;
+  ctx: ExecutionContext;
 };
 
 export type RouteHandler = (ctx: RouteContext) => Promise<Response | null>;

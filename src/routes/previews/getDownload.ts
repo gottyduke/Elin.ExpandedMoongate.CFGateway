@@ -1,13 +1,15 @@
 import { bad, raw } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 import { sanitizeFileName } from "../../utils/file";
+import type { RouteContext } from "../../types";
 
-export async function handleGetPreviewDownload(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetPreviewDownload({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const previewKey = url.searchParams.get("previewKey")?.trim() ?? "";

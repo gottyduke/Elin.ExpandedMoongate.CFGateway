@@ -1,13 +1,14 @@
-import type { RatingBody } from "../../types";
+import type { RatingBody, RouteContext } from "../../types";
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 
-export async function handlePostMapsRating(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handlePostMapsRating({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";

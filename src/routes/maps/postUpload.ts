@@ -1,15 +1,16 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { MapMetaBody } from "../../types";
+import type { MapMetaBody, RouteContext } from "../../types";
 import { makeRequestId } from "../../utils/request";
 import { fileKeyToToken, sanitizeFileName } from "../../utils/file";
 
-export async function handlePostMapsUpload(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handlePostMapsUpload({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const mapId = url.searchParams.get("mapId")?.trim() ?? "";

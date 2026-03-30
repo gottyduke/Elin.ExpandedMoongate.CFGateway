@@ -1,14 +1,15 @@
 import { bad, json } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
-import { MapDbRecordWithRating } from "../../types";
+import type { MapDbRecordWithRating, RouteContext } from "../../types";
 import { buildSharedQuery } from "./buildSharedQuery";
 
-export async function handleGetMapsTop(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetMapsTop({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const sortParam = url.searchParams.get("sort");

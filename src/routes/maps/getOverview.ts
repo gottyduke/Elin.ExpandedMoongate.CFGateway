@@ -1,14 +1,15 @@
 import { json } from "../../utils/response";
 import { logInfo } from "../../utils/logger";
-import { MapsOverviewBody } from "../../types";
+import type { MapsOverviewBody, RouteContext } from "../../types";
 import { buildSharedQuery } from "./buildSharedQuery";
 
-export async function handleGetMapsOverview(
-  request: Request,
-  env: Env,
-  requestId: string,
-  bypass = false,
-): Promise<Response | null> {
+export async function handleGetMapsOverview({
+  request,
+  env,
+  requestId,
+  bypass,
+  ctx,
+}: RouteContext): Promise<Response | null> {
   const url = new URL(request.url);
 
   const langParam = url.searchParams.get("lang");
