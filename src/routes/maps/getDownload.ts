@@ -22,8 +22,15 @@ export async function handleGetMapsDownload(
     return bad("Invalid map id or view id");
   }
 
+  const cache = caches.default;
+
   let map: { file_key: string } | null = null;
   if (viewId.length == 12) {
+    let response = await cache.match(request);
+    if (response) {
+      return response;
+    }
+
     map = await env.DB.prepare(
       `
       SELECT file_key
@@ -59,16 +66,6 @@ export async function handleGetMapsDownload(
     return bad("File not found", 404);
   }
 
-  await env.DB.prepare(
-    `
-    UPDATE maps
-    SET visit_count = visit_count + 1
-    WHERE file_key = ?
-    `,
-  )
-    .bind(map.file_key)
-    .run();
-
   const headers = new Headers();
   headers.set(
     "content-type",
@@ -88,5 +85,12 @@ export async function handleGetMapsDownload(
     mapId,
     fileKey: map.file_key,
   });
-  return raw(obj.body, 200, headers);
+
+  const response = raw(obj.body, 200, headers);
+  if (viewId.length == 12) {
+    headers.set("cache-control", "public, max-age=31536000, immutable");
+    await cache.put(request, response);
+  }
+
+  return response;
 }
