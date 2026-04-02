@@ -13,6 +13,12 @@
 	"observability": {
 		"enabled": true
 	},
+  "analytics_engine_datasets": [
+    {
+      "binding": "AE",
+      "dataset": "analytics_exmoongate_events"
+    }
+  ],
 	"routes": [
 		{
 			"pattern": "api.exmoongate.elin-modding.net",
@@ -41,5 +47,9 @@
 				"period": 10
 			}
 		}
-	]
+  ],
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "single-page-application"
+  }
 }

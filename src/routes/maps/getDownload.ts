@@ -2,6 +2,7 @@ import { bad, raw } from "../../utils/response";
 import { logInfo, logWarn } from "../../utils/logger";
 import { sanitizeFileName } from "../../utils/file";
 import type { RouteContext } from "../../types";
+import { MAP_CACHE_TTL } from "../../constants";
 
 export async function handleGetMapsDownload({
   request,
@@ -88,6 +89,7 @@ export async function handleGetMapsDownload({
     "content-disposition",
     `attachment; filename="${fallback}"; filename*=UTF-8''${encoded}`,
   );
+  headers.set("cache-control", `public, max-age=${MAP_CACHE_TTL}, immutable`);
 
   logInfo(requestId, "route.maps.download.ok", {
     mapId,
